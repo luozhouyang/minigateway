@@ -21,7 +21,7 @@ describe("CredentialRepository", () => {
     credentialRepo = new CredentialRepository(db);
     consumerRepo = new ConsumerRepository(db);
 
-    runMigrations(db);
+    runMigrations(dbPath);
   });
 
   afterEach(() => {

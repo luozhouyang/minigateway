@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 
@@ -64,30 +64,36 @@ export const services = sqliteTable("services", {
 });
 
 // Routes table
-export const routes = sqliteTable("routes", {
-  id: text("id").primaryKey().$defaultFn(randomId),
-  name: text("name").unique().notNull(),
-  serviceId: text("service_id").references(() => services.id, { onDelete: "cascade" }),
-  protocols: text("protocols", { mode: "json" })
-    .$type<string[]>()
-    .$defaultFn(() => ["http", "https"]),
-  methods: text("methods", { mode: "json" }).$type<string[]>(),
-  hosts: text("hosts", { mode: "json" }).$type<string[]>(),
-  paths: text("paths", { mode: "json" }).$type<string[]>(),
-  headers: text("headers", { mode: "json" }).$type<Record<string, string | string[]>>(),
-  snis: text("snis", { mode: "json" }).$type<string[]>(),
-  sources: text("sources", { mode: "json" }).$type<string[]>(),
-  destinations: text("destinations", { mode: "json" }).$type<string[]>(),
-  stripPath: integer("strip_path", { mode: "boolean" }).default(false),
-  preserveHost: integer("preserve_host", { mode: "boolean" }).default(false),
-  regexPriority: integer("regex_priority").default(0),
-  pathHandling: text("path_handling").default("v0"),
-  tags: text("tags", { mode: "json" })
-    .$type<string[]>()
-    .$defaultFn(() => []),
-  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
-  updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
-});
+export const routes = sqliteTable(
+  "routes",
+  {
+    id: text("id").primaryKey().$defaultFn(randomId),
+    name: text("name").unique().notNull(),
+    serviceId: text("service_id").references(() => services.id, { onDelete: "cascade" }),
+    protocols: text("protocols", { mode: "json" })
+      .$type<string[]>()
+      .$defaultFn(() => ["http", "https"]),
+    methods: text("methods", { mode: "json" }).$type<string[]>(),
+    hosts: text("hosts", { mode: "json" }).$type<string[]>(),
+    paths: text("paths", { mode: "json" }).$type<string[]>(),
+    headers: text("headers", { mode: "json" }).$type<Record<string, string | string[]>>(),
+    snis: text("snis", { mode: "json" }).$type<string[]>(),
+    sources: text("sources", { mode: "json" }).$type<string[]>(),
+    destinations: text("destinations", { mode: "json" }).$type<string[]>(),
+    stripPath: integer("strip_path", { mode: "boolean" }).default(false),
+    preserveHost: integer("preserve_host", { mode: "boolean" }).default(false),
+    regexPriority: integer("regex_priority").default(0),
+    pathHandling: text("path_handling").default("v0"),
+    tags: text("tags", { mode: "json" })
+      .$type<string[]>()
+      .$defaultFn(() => []),
+    createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idx_routes_service_id: index("idx_routes_service_id").on(table.serviceId),
+  }),
+);
 
 // Upstreams table
 export const upstreams = sqliteTable("upstreams", {
@@ -106,16 +112,22 @@ export const upstreams = sqliteTable("upstreams", {
 });
 
 // Targets table
-export const targets = sqliteTable("targets", {
-  id: text("id").primaryKey().$defaultFn(randomId),
-  upstreamId: text("upstream_id").references(() => upstreams.id, { onDelete: "cascade" }),
-  target: text("target").notNull(),
-  weight: integer("weight").default(100),
-  tags: text("tags", { mode: "json" })
-    .$type<string[]>()
-    .$defaultFn(() => []),
-  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
-});
+export const targets = sqliteTable(
+  "targets",
+  {
+    id: text("id").primaryKey().$defaultFn(randomId),
+    upstreamId: text("upstream_id").references(() => upstreams.id, { onDelete: "cascade" }),
+    target: text("target").notNull(),
+    weight: integer("weight").default(100),
+    tags: text("tags", { mode: "json" })
+      .$type<string[]>()
+      .$defaultFn(() => []),
+    createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idx_targets_upstream_id: index("idx_targets_upstream_id").on(table.upstreamId),
+  }),
+);
 
 // Consumers table
 export const consumers = sqliteTable("consumers", {
@@ -130,34 +142,48 @@ export const consumers = sqliteTable("consumers", {
 });
 
 // Plugins table
-export const plugins = sqliteTable("plugins", {
-  id: text("id").primaryKey().$defaultFn(randomId),
-  name: text("name").notNull(),
-  serviceId: text("service_id").references(() => services.id, { onDelete: "cascade" }),
-  routeId: text("route_id").references(() => routes.id, { onDelete: "cascade" }),
-  consumerId: text("consumer_id").references(() => consumers.id, { onDelete: "cascade" }),
-  config: text("config", { mode: "json" }).$type<Record<string, unknown>>(),
-  enabled: integer("enabled", { mode: "boolean" }).default(true),
-  runOn: text("run_on").default("first"),
-  ordering: text("ordering", { mode: "json" }).$type<Record<string, unknown>>(),
-  tags: text("tags", { mode: "json" })
-    .$type<string[]>()
-    .$defaultFn(() => []),
-  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
-  updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
-});
+export const plugins = sqliteTable(
+  "plugins",
+  {
+    id: text("id").primaryKey().$defaultFn(randomId),
+    name: text("name").notNull(),
+    serviceId: text("service_id").references(() => services.id, { onDelete: "cascade" }),
+    routeId: text("route_id").references(() => routes.id, { onDelete: "cascade" }),
+    consumerId: text("consumer_id").references(() => consumers.id, { onDelete: "cascade" }),
+    config: text("config", { mode: "json" }).$type<Record<string, unknown>>(),
+    enabled: integer("enabled", { mode: "boolean" }).default(true),
+    runOn: text("run_on").default("first"),
+    ordering: text("ordering", { mode: "json" }).$type<Record<string, unknown>>(),
+    tags: text("tags", { mode: "json" })
+      .$type<string[]>()
+      .$defaultFn(() => []),
+    createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idx_plugins_service_id: index("idx_plugins_service_id").on(table.serviceId),
+    idx_plugins_route_id: index("idx_plugins_route_id").on(table.routeId),
+    idx_plugins_consumer_id: index("idx_plugins_consumer_id").on(table.consumerId),
+  }),
+);
 
 // Credentials table
-export const credentials = sqliteTable("credentials", {
-  id: text("id").primaryKey().$defaultFn(randomId),
-  consumerId: text("consumer_id").references(() => consumers.id, { onDelete: "cascade" }),
-  credentialType: text("credential_type").notNull(),
-  credential: text("credential", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
-  tags: text("tags", { mode: "json" })
-    .$type<string[]>()
-    .$defaultFn(() => []),
-  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
-});
+export const credentials = sqliteTable(
+  "credentials",
+  {
+    id: text("id").primaryKey().$defaultFn(randomId),
+    consumerId: text("consumer_id").references(() => consumers.id, { onDelete: "cascade" }),
+    credentialType: text("credential_type").notNull(),
+    credential: text("credential", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+    tags: text("tags", { mode: "json" })
+      .$type<string[]>()
+      .$defaultFn(() => []),
+    createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idx_credentials_consumer_id: index("idx_credentials_consumer_id").on(table.consumerId),
+  }),
+);
 
 // Relations definitions
 export const servicesRelations = relations(services, ({ many }) => ({

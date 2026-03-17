@@ -19,7 +19,7 @@ describe("ServiceRepository", () => {
     repo = new ServiceRepository(db);
 
     // Run database migrations
-    runMigrations(db);
+    runMigrations(dbPath);
   });
 
   afterEach(() => {

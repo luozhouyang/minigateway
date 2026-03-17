@@ -18,7 +18,7 @@ describe("UpstreamRepository", () => {
     db = new DatabaseService(dbPath);
     repo = new UpstreamRepository(db);
 
-    runMigrations(db);
+    runMigrations(dbPath);
   });
 
   afterEach(() => {

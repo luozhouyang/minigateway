@@ -18,7 +18,7 @@ describe("ConsumerRepository", () => {
     db = new DatabaseService(dbPath);
     repo = new ConsumerRepository(db);
 
-    runMigrations(db);
+    runMigrations(dbPath);
   });
 
   afterEach(() => {

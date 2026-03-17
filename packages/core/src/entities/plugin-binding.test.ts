@@ -27,7 +27,7 @@ describe("PluginBindingRepository", () => {
     routeRepo = new RouteRepository(db);
     consumerRepo = new ConsumerRepository(db);
 
-    runMigrations(db);
+    runMigrations(dbPath);
   });
 
   afterEach(() => {

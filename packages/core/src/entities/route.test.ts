@@ -21,7 +21,7 @@ describe("RouteRepository", () => {
     routeRepo = new RouteRepository(db);
     serviceRepo = new ServiceRepository(db);
 
-    runMigrations(db);
+    runMigrations(dbPath);
   });
 
   afterEach(() => {

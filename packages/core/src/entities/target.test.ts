@@ -21,7 +21,7 @@ describe("TargetRepository", () => {
     targetRepo = new TargetRepository(db);
     upstreamRepo = new UpstreamRepository(db);
 
-    runMigrations(db);
+    runMigrations(dbPath);
   });
 
   afterEach(() => {
