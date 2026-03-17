@@ -74,3 +74,15 @@ These commands map to their corresponding tools. For example, `vp dev --port 300
 - [ ] Run `vp install` after pulling remote changes and before getting started.
 - [ ] Run `vp check` and `vp test` to validate changes.
 <!--VITE PLUS END-->
+
+---
+
+# Code Language Convention
+
+**All code and comments must be in English.**
+
+- Variable names, function names, type names: English only
+- Comments and documentation: English only
+- Test names and descriptions: English only
+
+This applies to all `.ts`, `.js`, `.tsx`, `.jsx` files and any other source code files.

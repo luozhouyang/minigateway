@@ -1,0 +1,39 @@
+{
+  "name": "@token-gateway/core",
+  "version": "0.0.0",
+  "description": "API Proxy Engine Core - Core business logic",
+  "homepage": "https://github.com/luozhouyang/token-gateway/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/luozhouyang/token-gateway/issues"
+  },
+  "license": "MIT",
+  "author": "Luo Zhou Yang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luozhouyang/token-gateway.git",
+    "directory": "packages/core"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "vp build",
+    "dev": "vp build --watch",
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "drizzle-orm": "^0.39.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^25.5.0",
+    "@typescript/native-preview": "7.0.0-dev.20260316.1",
+    "typescript": "^5.9.3",
+    "vite-plus": "^0.1.11"
+  }
+}
