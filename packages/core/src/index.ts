@@ -22,3 +22,16 @@ export type * from "./entities/types.js";
 export { PluginManager } from "./plugins/plugin-manager.js";
 export { PluginLoader } from "./plugins/plugin-loader.js";
 export * from "./plugins/types.js";
+
+// Engine
+export { ProxyEngine } from "./engine/proxy-engine.js";
+export {
+  RoundRobinLoadBalancer,
+  LeastConnectionsLoadBalancer,
+  HashLoadBalancer,
+  HealthAwareLoadBalancer,
+  createLoadBalancer,
+  type LoadBalancer,
+  type LoadBalancerOptions,
+  type LoadBalancingAlgorithm,
+} from "./engine/load-balancer.js";
