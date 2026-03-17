@@ -1,7 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import Footer from "../components/Footer";
+import { Toaster } from "../components/ui/toast";
 import Header from "../components/Header";
 
 import appCss from "../styles.css?url";
@@ -19,7 +19,7 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "Token Gateway",
       },
     ],
     links: [
@@ -39,10 +39,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
+      <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)] bg-[var(--chip-bg)]">
         <Header />
-        {children}
-        <Footer />
+        <main className="px-6 py-6">{children}</main>
+        <Toaster />
         <TanStackDevtools
           config={{
             position: "bottom-right",
