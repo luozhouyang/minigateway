@@ -1,0 +1,287 @@
+// Plugins Routes Tests
+
+import { test, expect, beforeEach, afterEach, describe } from "vite-plus/test";
+import { createTestContext, destroyTestContext } from "../test-utils.js";
+import type { TestContext } from "../test-utils.js";
+
+describe("Plugins Routes", () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestContext();
+  });
+
+  afterEach(() => {
+    destroyTestContext(ctx);
+  });
+
+  describe("POST /admin/plugins", () => {
+    test("creates a plugin binding", async () => {
+      const body = {
+        name: "key-auth",
+        config: {
+          key_names: ["apikey"],
+        },
+        enabled: true,
+        runOn: "first",
+        tags: ["test"],
+      };
+
+      const response = await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      expect(response.status).toBe(201);
+      const json = await response.json();
+      expect(json.data).toBeDefined();
+      expect(json.data.name).toBe("key-auth");
+      expect(json.data.enabled).toBe(true);
+      expect(json.data.runOn).toBe("first");
+    });
+
+    test("creates a plugin bound to a service", async () => {
+      // First create a service
+      const serviceResponse = await ctx.app.request("/admin/services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "test-service",
+          url: "http://localhost:8080",
+          protocol: "http",
+          host: "localhost",
+          port: 8080,
+        }),
+      });
+      const service = await serviceResponse.json();
+
+      const body = {
+        name: "cors",
+        serviceId: service.data.id,
+        config: {
+          origins: ["*"],
+        },
+        enabled: true,
+      };
+
+      const response = await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      expect(response.status).toBe(201);
+      const json = await response.json();
+      expect(json.data).toBeDefined();
+      expect(json.data.name).toBe("cors");
+      expect(json.data.serviceId).toBe(service.data.id);
+    });
+
+    test("returns 400 for missing required fields", async () => {
+      const body = { name: "" };
+
+      const response = await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      expect(response.status).toBe(400);
+      const json = await response.json();
+      expect(json.error).toBeDefined();
+      expect(json.error.code).toBe("VALIDATION_ERROR");
+    });
+  });
+
+  describe("GET /admin/plugins", () => {
+    test("lists all plugins", async () => {
+      await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "key-auth",
+          config: { key_names: ["apikey"] },
+        }),
+      });
+
+      await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "cors",
+          config: { origins: ["*"] },
+        }),
+      });
+
+      const response = await ctx.app.request("/admin/plugins");
+
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.data).toHaveLength(2);
+    });
+
+    test("supports pagination", async () => {
+      const response = await ctx.app.request("/admin/plugins?limit=5&offset=0");
+
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.data).toBeDefined();
+      expect(json.meta).toBeDefined();
+    });
+
+    test("filters by name", async () => {
+      await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "unique-plugin",
+          config: {},
+        }),
+      });
+
+      const response = await ctx.app.request("/admin/plugins?name=unique");
+
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.data).toHaveLength(1);
+      expect(json.data[0].name).toBe("unique-plugin");
+    });
+
+    test("filters by enabled status", async () => {
+      await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "enabled-plugin",
+          config: {},
+          enabled: true,
+        }),
+      });
+
+      await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "disabled-plugin",
+          config: {},
+          enabled: false,
+        }),
+      });
+
+      const response = await ctx.app.request("/admin/plugins?enabled=true");
+
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.data).toHaveLength(1);
+      expect(json.data[0].name).toBe("enabled-plugin");
+    });
+  });
+
+  describe("GET /admin/plugins/:id", () => {
+    test("gets a plugin by id", async () => {
+      const createResponse = await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "test-plugin",
+          config: { key: "value" },
+        }),
+      });
+      const created = await createResponse.json();
+
+      const response = await ctx.app.request(`/admin/plugins/${created.data.id}`);
+
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.data.id).toBe(created.data.id);
+      expect(json.data.name).toBe("test-plugin");
+    });
+
+    test("returns 404 for non-existent plugin", async () => {
+      const response = await ctx.app.request("/admin/plugins/non-existent-id");
+
+      expect(response.status).toBe(404);
+      const json = await response.json();
+      expect(json.error).toBeDefined();
+      expect(json.error.code).toBe("NOT_FOUND");
+    });
+  });
+
+  describe("PUT /admin/plugins/:id", () => {
+    test("updates a plugin", async () => {
+      const createResponse = await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "test-plugin",
+          config: { key: "old-value" },
+          enabled: true,
+        }),
+      });
+      const created = await createResponse.json();
+
+      const response = await ctx.app.request(`/admin/plugins/${created.data.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          config: { key: "new-value" },
+          enabled: false,
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.data.config).toEqual({ key: "new-value" });
+      expect(json.data.enabled).toBe(false);
+    });
+
+    test("returns 404 for non-existent plugin", async () => {
+      const response = await ctx.app.request("/admin/plugins/non-existent-id", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: false }),
+      });
+
+      expect(response.status).toBe(404);
+      const json = await response.json();
+      expect(json.error).toBeDefined();
+    });
+  });
+
+  describe("DELETE /admin/plugins/:id", () => {
+    test("deletes a plugin", async () => {
+      const createResponse = await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "test-plugin",
+          config: {},
+        }),
+      });
+      const created = await createResponse.json();
+
+      const deleteResponse = await ctx.app.request(`/admin/plugins/${created.data.id}`, {
+        method: "DELETE",
+      });
+
+      expect(deleteResponse.status).toBe(200);
+      const deleteJson = await deleteResponse.json();
+      expect(deleteJson.data.deleted).toBe(true);
+
+      // Verify plugin is deleted
+      const getResponse = await ctx.app.request(`/admin/plugins/${created.data.id}`);
+      expect(getResponse.status).toBe(404);
+    });
+
+    test("returns 404 for non-existent plugin", async () => {
+      const response = await ctx.app.request("/admin/plugins/non-existent-id", {
+        method: "DELETE",
+      });
+
+      expect(response.status).toBe(404);
+      const json = await response.json();
+      expect(json.error).toBeDefined();
+    });
+  });
+});

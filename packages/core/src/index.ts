@@ -35,3 +35,46 @@ export {
   type LoadBalancerOptions,
   type LoadBalancingAlgorithm,
 } from "./engine/load-balancer.js";
+
+// Admin API
+export { createAdminApi, type AdminApiOptions } from "./admin-api/server.js";
+// Zod schemas (prefixed with Z to avoid naming conflicts)
+export {
+  createServiceSchema,
+  createRouteSchema,
+  createUpstreamSchema,
+  createTargetSchema,
+  createConsumerSchema,
+  createCredentialSchema,
+  createPluginSchema,
+  updateServiceSchema,
+  updateRouteSchema,
+  updateUpstreamSchema,
+  updateTargetSchema,
+  updateConsumerSchema,
+  updateCredentialSchema,
+  updatePluginSchema,
+  paginationSchema,
+  serviceFilterSchema,
+  routeFilterSchema,
+  upstreamFilterSchema,
+  consumerFilterSchema,
+  pluginFilterSchema,
+} from "./admin-api/schemas.js";
+// API types (prefixed to avoid conflicts)
+export type {
+  ServiceResponse,
+  RouteResponse,
+  UpstreamResponse,
+  TargetResponse,
+  ConsumerResponse,
+  PluginResponse,
+  CredentialResponse,
+  ApiSuccessResponse,
+  ApiErrorResponse,
+  ApiResponseMeta,
+  ValidationError,
+  ErrorCode,
+  PaginationParams,
+  PaginationResult,
+} from "./admin-api/types.js";

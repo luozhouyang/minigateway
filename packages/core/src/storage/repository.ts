@@ -1,6 +1,6 @@
 import type { DatabaseService } from "./database.js";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
-import { eq, type SQL } from "drizzle-orm";
+import { eq, desc, asc, type SQL } from "drizzle-orm";
 
 export interface ListOptions {
   limit?: number;
@@ -45,9 +45,9 @@ export abstract class Repository<T extends { id: string }> {
     if (options?.orderBy) {
       const column = (this.table as any)[options.orderBy];
       if (options.order === "desc") {
-        query = query.orderBy(column.desc());
+        query = query.orderBy(desc(column));
       } else {
-        query = query.orderBy(column.asc());
+        query = query.orderBy(asc(column));
       }
     }
 
