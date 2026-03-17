@@ -1,8 +1,9 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { Toaster } from "../components/ui/toast";
-import Header from "../components/Header";
+import { Toaster } from "@/components/ui/sonner";
+import { SidebarProvider, SidebarInset } from "../components/ui/sidebar";
+import { AppSidebar } from "../components/layout/AppSidebar";
 
 import appCss from "../styles.css?url";
 
@@ -39,9 +40,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)] bg-[var(--chip-bg)]">
-        <Header />
-        <main className="px-6 py-6">{children}</main>
+      <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-primary/20 bg-background">
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset className="md:ml-[16rem] transition-[margin-left] duration-200">
+            <main className="p-6">{children}</main>
+          </SidebarInset>
+        </SidebarProvider>
         <Toaster />
         <TanStackDevtools
           config={{

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { servicesApi, type Service } from "@/lib/api/client";
-import { toast } from "@/components/ui/toast";
+import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/services/")({
@@ -71,9 +71,8 @@ function ServicesList() {
       const response = await servicesApi.list();
       setServices(response || []);
     } catch (error) {
-      toast.error({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load services",
+      toast.error("Failed to load services", {
+        description: error instanceof Error ? error.message : undefined,
       });
     } finally {
       setLoading(false);
@@ -136,23 +135,16 @@ function ServicesList() {
     try {
       if (editingService) {
         await servicesApi.update(editingService.id, payload);
-        toast.success({
-          title: "Success",
-          description: "Service updated successfully",
-        });
+        toast.success("Service updated successfully");
       } else {
         await servicesApi.create(payload);
-        toast.success({
-          title: "Success",
-          description: "Service created successfully",
-        });
+        toast.success("Service created successfully");
       }
       setDialogOpen(false);
       void loadServices();
     } catch (error) {
-      toast.error({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save service",
+      toast.error("Failed to save service", {
+        description: error instanceof Error ? error.message : undefined,
       });
     }
   };
@@ -164,15 +156,11 @@ function ServicesList() {
 
     try {
       await servicesApi.delete(id);
-      toast.success({
-        title: "Success",
-        description: "Service deleted successfully",
-      });
+      toast.success("Service deleted successfully");
       void loadServices();
     } catch (error) {
-      toast.error({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete service",
+      toast.error("Failed to delete service", {
+        description: error instanceof Error ? error.message : undefined,
       });
     }
   };
@@ -187,8 +175,8 @@ function ServicesList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--sea-ink)]">Services</h1>
-          <p className="text-sm text-[var(--sea-ink-soft)]">Manage your upstream services</p>
+          <h1 className="text-2xl font-bold text-foreground">Services</h1>
+          <p className="text-sm text-muted-foreground">Manage your upstream services</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -234,7 +222,7 @@ function ServicesList() {
                         protocol: e.target.value as ServiceFormData["protocol"],
                       })
                     }
-                    className="flex h-10 w-full rounded-lg border border-[var(--chip-line)] bg-transparent px-3 py-2 text-sm text-[var(--sea-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sea-ink)]"
+                    className="flex h-10 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="http">http</option>
                     <option value="https">https</option>
@@ -363,7 +351,7 @@ function ServicesList() {
       <Card>
         <CardContent className="p-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--sea-ink-soft)]" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search services..."
               value={searchQuery}
@@ -390,13 +378,13 @@ function ServicesList() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-[var(--sea-ink-soft)]">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredServices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-[var(--sea-ink-soft)]">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No services found. Click "Add Service" to create one.
                 </TableCell>
               </TableRow>
@@ -414,7 +402,7 @@ function ServicesList() {
                         {service.tags.map((tag, i) => (
                           <span
                             key={i}
-                            className="inline-flex items-center rounded-md bg-[var(--chip-bg)] px-2 py-1 text-xs font-medium text-[var(--sea-ink)]"
+                            className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium"
                           >
                             {tag}
                           </span>

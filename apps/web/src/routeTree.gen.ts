@@ -11,7 +11,13 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as AboutRouteImport } from "./routes/about";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as UpstreamsIndexRouteImport } from "./routes/upstreams/index";
+import { Route as SettingsIndexRouteImport } from "./routes/settings/index";
 import { Route as ServicesIndexRouteImport } from "./routes/services/index";
+import { Route as RoutesIndexRouteImport } from "./routes/routes/index";
+import { Route as PluginsIndexRouteImport } from "./routes/plugins/index";
+import { Route as DashboardIndexRouteImport } from "./routes/dashboard/index";
+import { Route as ConsumersIndexRouteImport } from "./routes/consumers/index";
 
 const AboutRoute = AboutRouteImport.update({
   id: "/about",
@@ -23,40 +29,122 @@ const IndexRoute = IndexRouteImport.update({
   path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
+const UpstreamsIndexRoute = UpstreamsIndexRouteImport.update({
+  id: "/upstreams/",
+  path: "/upstreams/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: "/settings/",
+  path: "/settings/",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const ServicesIndexRoute = ServicesIndexRouteImport.update({
   id: "/services/",
   path: "/services/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const RoutesIndexRoute = RoutesIndexRouteImport.update({
+  id: "/routes/",
+  path: "/routes/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PluginsIndexRoute = PluginsIndexRouteImport.update({
+  id: "/plugins/",
+  path: "/plugins/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: "/dashboard/",
+  path: "/dashboard/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ConsumersIndexRoute = ConsumersIndexRouteImport.update({
+  id: "/consumers/",
+  path: "/consumers/",
   getParentRoute: () => rootRouteImport,
 } as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
+  "/consumers/": typeof ConsumersIndexRoute;
+  "/dashboard/": typeof DashboardIndexRoute;
+  "/plugins/": typeof PluginsIndexRoute;
+  "/routes/": typeof RoutesIndexRoute;
   "/services/": typeof ServicesIndexRoute;
+  "/settings/": typeof SettingsIndexRoute;
+  "/upstreams/": typeof UpstreamsIndexRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
+  "/consumers": typeof ConsumersIndexRoute;
+  "/dashboard": typeof DashboardIndexRoute;
+  "/plugins": typeof PluginsIndexRoute;
+  "/routes": typeof RoutesIndexRoute;
   "/services": typeof ServicesIndexRoute;
+  "/settings": typeof SettingsIndexRoute;
+  "/upstreams": typeof UpstreamsIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
+  "/consumers/": typeof ConsumersIndexRoute;
+  "/dashboard/": typeof DashboardIndexRoute;
+  "/plugins/": typeof PluginsIndexRoute;
+  "/routes/": typeof RoutesIndexRoute;
   "/services/": typeof ServicesIndexRoute;
+  "/settings/": typeof SettingsIndexRoute;
+  "/upstreams/": typeof UpstreamsIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/about" | "/services/";
+  fullPaths:
+    | "/"
+    | "/about"
+    | "/consumers/"
+    | "/dashboard/"
+    | "/plugins/"
+    | "/routes/"
+    | "/services/"
+    | "/settings/"
+    | "/upstreams/";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/about" | "/services";
-  id: "__root__" | "/" | "/about" | "/services/";
+  to:
+    | "/"
+    | "/about"
+    | "/consumers"
+    | "/dashboard"
+    | "/plugins"
+    | "/routes"
+    | "/services"
+    | "/settings"
+    | "/upstreams";
+  id:
+    | "__root__"
+    | "/"
+    | "/about"
+    | "/consumers/"
+    | "/dashboard/"
+    | "/plugins/"
+    | "/routes/"
+    | "/services/"
+    | "/settings/"
+    | "/upstreams/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AboutRoute: typeof AboutRoute;
+  ConsumersIndexRoute: typeof ConsumersIndexRoute;
+  DashboardIndexRoute: typeof DashboardIndexRoute;
+  PluginsIndexRoute: typeof PluginsIndexRoute;
+  RoutesIndexRoute: typeof RoutesIndexRoute;
   ServicesIndexRoute: typeof ServicesIndexRoute;
+  SettingsIndexRoute: typeof SettingsIndexRoute;
+  UpstreamsIndexRoute: typeof UpstreamsIndexRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -75,11 +163,53 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof IndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/upstreams/": {
+      id: "/upstreams/";
+      path: "/upstreams";
+      fullPath: "/upstreams/";
+      preLoaderRoute: typeof UpstreamsIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/settings/": {
+      id: "/settings/";
+      path: "/settings";
+      fullPath: "/settings/";
+      preLoaderRoute: typeof SettingsIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/services/": {
       id: "/services/";
       path: "/services";
       fullPath: "/services/";
       preLoaderRoute: typeof ServicesIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/routes/": {
+      id: "/routes/";
+      path: "/routes";
+      fullPath: "/routes/";
+      preLoaderRoute: typeof RoutesIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/plugins/": {
+      id: "/plugins/";
+      path: "/plugins";
+      fullPath: "/plugins/";
+      preLoaderRoute: typeof PluginsIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/dashboard/": {
+      id: "/dashboard/";
+      path: "/dashboard";
+      fullPath: "/dashboard/";
+      preLoaderRoute: typeof DashboardIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/consumers/": {
+      id: "/consumers/";
+      path: "/consumers";
+      fullPath: "/consumers/";
+      preLoaderRoute: typeof ConsumersIndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
   }
@@ -88,7 +218,13 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  ConsumersIndexRoute: ConsumersIndexRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+  PluginsIndexRoute: PluginsIndexRoute,
+  RoutesIndexRoute: RoutesIndexRoute,
   ServicesIndexRoute: ServicesIndexRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+  UpstreamsIndexRoute: UpstreamsIndexRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

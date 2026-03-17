@@ -3,18 +3,17 @@ import { cn } from "@/lib/utils";
 import React from "react";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-[var(--sea-ink)] text-white hover:bg-[var(--sea-ink)]/90 shadow-sm",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
         secondary:
-          "bg-[var(--chip-bg)] text-[var(--sea-ink)] hover:bg-[var(--chip-bg)]/80 border border-[var(--chip-line)]",
-        outline:
-          "border border-[var(--chip-line)] bg-transparent hover:bg-[var(--chip-bg)]/50 text-[var(--sea-ink)]",
-        ghost: "hover:bg-[var(--chip-bg)]/50 text-[var(--sea-ink)]",
-        link: "text-[var(--sea-ink)] underline-offset-4 hover:underline",
-        destructive: "bg-red-500 text-white hover:bg-red-600 shadow-sm",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
+        outline: "border border-border bg-transparent hover:bg-muted/50 text-foreground",
+        ghost: "hover:bg-muted/50 text-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
       },
       size: {
         default: "h-10 px-4 py-2",
