@@ -17,3 +17,8 @@ export { CredentialRepository } from "./entities/credential.js";
 
 // Types
 export type * from "./entities/types.js";
+
+// Plugins
+export { PluginManager } from "./plugins/plugin-manager.js";
+export { PluginLoader } from "./plugins/plugin-loader.js";
+export * from "./plugins/types.js";
