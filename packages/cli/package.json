@@ -20,6 +20,9 @@
     "dist"
   ],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "vp pack src/cli/index.ts",
     "bundle": "node ./scripts/build.mjs",

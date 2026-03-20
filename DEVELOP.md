@@ -121,13 +121,76 @@ Then verify:
 
 ## Versioning Rules
 
-Before publishing:
+This repository uses `changesets` for versioning and release management.
 
-1. Update the version in `packages/core/package.json`.
-2. Update the version in `packages/cli/package.json`.
-3. Keep the CLI dependency on `@token-gateway/core` aligned with the version you are publishing.
+Only these packages are managed for npm release:
 
-Because `packages/cli` uses a workspace dependency during development, the packed artifact must resolve to a real published `@token-gateway/core` version when released.
+- `@token-gateway/core`
+- `@token-gateway/cli`
+
+The following workspace packages are ignored by `changesets`:
+
+- `web`
+- `website`
+- `utils`
+
+## Changesets Workflow
+
+Create a changeset whenever a merged change should affect the published version of `@token-gateway/core`, `@token-gateway/cli`, or both.
+
+Create a changeset from the repository root:
+
+```bash
+./node_modules/.bin/changeset
+```
+
+The CLI will ask you to:
+
+1. Select the packages to release.
+2. Choose the bump type for each selected package.
+3. Write a short summary that explains the user-visible change.
+
+Package selection guidance:
+
+- Choose `@token-gateway/core` when the change affects runtime APIs, server behavior, storage, migrations, proxy logic, or code consumed by the CLI.
+- Choose `@token-gateway/cli` when the change affects CLI commands, CLI packaging, startup behavior, or the shipped web bundle.
+- Choose both when the CLI depends on new or changed behavior in `core`.
+
+Bump type guidance:
+
+- `patch`: bug fixes, internal fixes, packaging fixes, or behavior corrections that should not break existing users.
+- `minor`: new backward-compatible features, commands, options, endpoints, or UI capabilities.
+- `major`: breaking CLI behavior, breaking config changes, removed APIs, or incompatible runtime changes.
+
+The command creates a markdown file in `.changeset/`. Commit that file together with the code change.
+
+Inspect pending releases:
+
+```bash
+./node_modules/.bin/changeset status --verbose
+```
+
+This shows which packages will be bumped and at what version level.
+
+To apply version bumps locally:
+
+```bash
+./node_modules/.bin/changeset version
+```
+
+`changeset version` updates:
+
+- package versions in `package.json`
+- internal dependency ranges between released packages
+- `pnpm-lock.yaml`
+
+After running it:
+
+1. Review the version changes.
+2. Commit the updated package manifests and lockfile.
+3. Do not add extra unrelated changes before publishing.
+
+Because `packages/cli` uses a workspace dependency during development, the packed artifact must resolve to a real published `@token-gateway/core` version when released. `changesets` handles the package version bumps, and `pnpm` resolves the workspace dependency correctly during publish.
 
 ## Publish Order
 
@@ -140,27 +203,67 @@ Do not publish the CLI first. Consumers installing the CLI must be able to resol
 
 ## Publish Commands
 
-Vite+ does not provide a `publish` command, so publishing is done with the package manager.
+### Recommended: GitHub Actions Release Workflow
 
-Publish `core` first:
+The repository includes `.github/workflows/release.yml`.
+
+Behavior:
+
+1. On pushes to `main`, the workflow installs dependencies and runs:
+   - `vp run check -r`
+   - `vp run test -r`
+   - `vp run build -r`
+2. If pending changesets exist, it opens or updates a version PR.
+3. If the version PR has been merged and there are packages ready to publish, it publishes them to npm.
+
+Required repository secret:
+
+- `NPM_TOKEN`: npm automation token with publish permission
+
+Required GitHub repository permissions:
+
+- `contents: write`
+- `pull-requests: write`
+
+### Local Publish
+
+If you want to publish manually from your machine:
+
+1. Create and commit a changeset.
+2. Check pending release output if needed:
 
 ```bash
-cd packages/core
-pnpm publish --access public
+./node_modules/.bin/changeset status --verbose
 ```
 
-Publish `cli` second:
+3. Apply versions:
 
 ```bash
-cd packages/cli
-pnpm publish --access public
+./node_modules/.bin/changeset version
+```
+
+4. Commit the version bump changes.
+5. Validate the workspace:
+
+```bash
+vp run check -r
+vp run test -r
+vp run build -r
+```
+
+6. Publish with Changesets:
+
+```bash
+./node_modules/.bin/changeset publish
 ```
 
 Notes:
 
-- For a first public release of a scoped package, keep `--access public`.
-- `packages/cli` has a `prepack` script, so `pnpm publish` will automatically rebuild the final CLI bundle before upload.
-- Even though `prepack` rebuilds the package, always run the validation steps first.
+- `packages/core` and `packages/cli` both publish with `access: public`.
+- `packages/core` now has a `prepack` script, and `packages/cli` already had one.
+- `packages/cli` will rebuild and embed the web assets automatically during publish.
+- `changeset publish` uses `pnpm publish` in this workspace, so the workspace dependency from `@token-gateway/cli` to `@token-gateway/core` is resolved correctly at publish time.
+- For local manual publishing, keep the publish order in mind: `@token-gateway/core` must exist in npm before users can install the released CLI version.
 
 ## Packing Without Publishing
 

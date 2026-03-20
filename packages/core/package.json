@@ -26,9 +26,13 @@
     },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "vp pack src/index.ts && node ./scripts/copy-drizzle.mjs",
     "dev": "vp pack --watch src/index.ts",
+    "prepack": "vp run build",
     "test": "vp test",
     "check": "node ./scripts/run-check.mjs"
   },
