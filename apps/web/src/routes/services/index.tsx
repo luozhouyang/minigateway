@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -18,420 +20,552 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
 import { servicesApi, type Service } from "@/lib/api/client";
+import { useDashboardSettings } from "@/lib/dashboard-settings";
+import {
+  confirmAction,
+  formatTimestamp,
+  getErrorMessage,
+  joinCommaSeparated,
+  parseCommaSeparatedInput,
+  parseOptionalNumber,
+} from "@/lib/dashboard-utils";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Search, Server, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/services/")({
-  component: ServicesList,
+  component: ServicesPage,
 });
 
-interface ServiceFormData {
+interface ServiceFormState {
   name: string;
-  url?: string;
-  protocol?: "http" | "https" | "grpc" | "grpcs";
-  host?: string;
-  port?: number;
-  path?: string;
-  connectTimeout?: number;
-  writeTimeout?: number;
-  readTimeout?: number;
-  retries?: number;
-  tags?: string;
+  url: string;
+  protocol: "http" | "https" | "grpc" | "grpcs";
+  host: string;
+  port: string;
+  path: string;
+  connectTimeout: string;
+  writeTimeout: string;
+  readTimeout: string;
+  retries: string;
+  tags: string;
 }
 
-function ServicesList() {
+const EMPTY_FORM: ServiceFormState = {
+  name: "",
+  url: "",
+  protocol: "http",
+  host: "",
+  port: "",
+  path: "",
+  connectTimeout: "60000",
+  writeTimeout: "60000",
+  readTimeout: "60000",
+  retries: "5",
+  tags: "",
+};
+
+function ServicesPage() {
+  const { settings } = useDashboardSettings();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [formData, setFormData] = useState<ServiceFormData>({
-    name: "",
-    url: "",
-    protocol: "http",
-    host: "",
-    port: undefined,
-    path: "",
-    connectTimeout: 60000,
-    writeTimeout: 60000,
-    readTimeout: 60000,
-    retries: 5,
-    tags: "",
-  });
+  const [formState, setFormState] = useState<ServiceFormState>(EMPTY_FORM);
 
   useEffect(() => {
     void loadServices();
   }, []);
 
-  const loadServices = async () => {
+  async function loadServices(isRefresh = false) {
     try {
-      setLoading(true);
-      const response = await servicesApi.list();
-      setServices(response || []);
-    } catch (error) {
-      toast.error("Failed to load services", {
-        description: error instanceof Error ? error.message : undefined,
-      });
+      setError(null);
+
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setServices(await servicesApi.list());
+    } catch (loadError) {
+      setError(getErrorMessage(loadError, "Failed to load services"));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }
 
-  const handleOpenDialog = (service?: Service) => {
-    if (service) {
-      setEditingService(service);
-      setFormData({
-        name: service.name,
-        url: service.url || "",
-        protocol: (service.protocol as ServiceFormData["protocol"]) || "http",
-        host: service.host || "",
-        port: service.port || undefined,
-        path: service.path || "",
-        connectTimeout: service.connectTimeout,
-        writeTimeout: service.writeTimeout,
-        readTimeout: service.readTimeout,
-        retries: service.retries,
-        tags: service.tags?.join(", ") || "",
-      });
-    } else {
-      setEditingService(null);
-      setFormData({
-        name: "",
-        url: "",
-        protocol: "http",
-        host: "",
-        port: undefined,
-        path: "",
-        connectTimeout: 60000,
-        writeTimeout: 60000,
-        readTimeout: 60000,
-        retries: 5,
-        tags: "",
-      });
-    }
+  function openCreateDialog() {
+    setEditingService(null);
+    setFormState(EMPTY_FORM);
     setDialogOpen(true);
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  function openEditDialog(service: Service) {
+    setEditingService(service);
+    setFormState({
+      name: service.name,
+      url: service.url || "",
+      protocol: (service.protocol as ServiceFormState["protocol"]) || "http",
+      host: service.host || "",
+      port: service.port ? String(service.port) : "",
+      path: service.path || "",
+      connectTimeout: service.connectTimeout ? String(service.connectTimeout) : "",
+      writeTimeout: service.writeTimeout ? String(service.writeTimeout) : "",
+      readTimeout: service.readTimeout ? String(service.readTimeout) : "",
+      retries: service.retries ? String(service.retries) : "",
+      tags: joinCommaSeparated(service.tags),
+    });
+    setDialogOpen(true);
+  }
 
-    const payload = {
-      ...formData,
-      port: formData.port ? Number(formData.port) : undefined,
-      connectTimeout: formData.connectTimeout ? Number(formData.connectTimeout) : undefined,
-      writeTimeout: formData.writeTimeout ? Number(formData.writeTimeout) : undefined,
-      readTimeout: formData.readTimeout ? Number(formData.readTimeout) : undefined,
-      retries: formData.retries ? Number(formData.retries) : undefined,
-      tags: formData.tags
-        ? formData.tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : undefined,
-    };
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     try {
+      setSaving(true);
+
+      const payload: Partial<Service> = {
+        name: formState.name.trim(),
+        url: formState.url.trim() || undefined,
+        protocol: formState.protocol,
+        host: formState.host.trim() || undefined,
+        port: parseOptionalNumber(formState.port),
+        path: formState.path.trim() || undefined,
+        connectTimeout: parseOptionalNumber(formState.connectTimeout),
+        writeTimeout: parseOptionalNumber(formState.writeTimeout),
+        readTimeout: parseOptionalNumber(formState.readTimeout),
+        retries: parseOptionalNumber(formState.retries),
+        tags: parseCommaSeparatedInput(formState.tags),
+      };
+
       if (editingService) {
         await servicesApi.update(editingService.id, payload);
-        toast.success("Service updated successfully");
+        toast.success("Service updated");
       } else {
         await servicesApi.create(payload);
-        toast.success("Service created successfully");
+        toast.success("Service created");
       }
-      setDialogOpen(false);
-      void loadServices();
-    } catch (error) {
-      toast.error("Failed to save service", {
-        description: error instanceof Error ? error.message : undefined,
-      });
-    }
-  };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete service "${name}"?`)) {
+      setDialogOpen(false);
+      await loadServices(true);
+    } catch (saveError) {
+      toast.error("Failed to save service", {
+        description: getErrorMessage(saveError),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(service: Service) {
+    const shouldDelete = await confirmAction(
+      `Delete service "${service.name}"? This cannot be undone.`,
+    );
+    if (!shouldDelete) {
       return;
     }
 
     try {
-      await servicesApi.delete(id);
-      toast.success("Service deleted successfully");
-      void loadServices();
-    } catch (error) {
+      await servicesApi.delete(service.id);
+      toast.success("Service deleted");
+      await loadServices(true);
+    } catch (deleteError) {
       toast.error("Failed to delete service", {
-        description: error instanceof Error ? error.message : undefined,
+        description: getErrorMessage(deleteError),
       });
     }
-  };
+  }
 
-  const filteredServices = services.filter(
-    (service) =>
-      service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      service.host?.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredServices = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return services;
+    }
+
+    return services.filter((service) => {
+      const haystack = [
+        service.name,
+        service.url,
+        service.host,
+        service.path,
+        joinCommaSeparated(service.tags),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [searchQuery, services]);
+
+  const urlBackedServices = services.filter((service) => Boolean(service.url)).length;
+  const taggedServices = services.filter((service) => (service.tags?.length || 0) > 0).length;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-sm text-muted-foreground">Loading services…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Services</h1>
-          <p className="text-sm text-muted-foreground">Manage your upstream services</p>
+          <p className="text-sm text-muted-foreground">
+            Manage upstream destinations that routes and plugins depend on.
+          </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenDialog()}>
-              <Plus className="h-4 w-4" />
-              Add Service
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingService ? "Edit" : "Create"} Service</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="my-service"
-                  required
-                />
-              </div>
-              <div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void loadServices(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button type="button" onClick={openCreateDialog}>
+            <Plus className="h-4 w-4" />
+            Add Service
+          </Button>
+        </div>
+      </div>
+
+      {error ? (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-destructive">Unable to load services</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          icon={Server}
+          label="Total services"
+          value={services.length}
+          description="All configured upstream destinations"
+        />
+        <MetricCard
+          icon={Server}
+          label="URL based"
+          value={urlBackedServices}
+          description="Services using a direct URL"
+        />
+        <MetricCard
+          icon={Search}
+          label="Tagged"
+          value={taggedServices}
+          description="Services with management tags"
+        />
+      </div>
+
+      <Card>
+        <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle>Service inventory</CardTitle>
+            <CardDescription>
+              {filteredServices.length} of {services.length} services shown
+            </CardDescription>
+          </div>
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search by name, host, URL, path, or tag"
+              className="pl-9"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredServices.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border px-6 py-12 text-center">
+              <p className="text-sm font-medium text-foreground">No services matched</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Adjust the search query or create a new service.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Endpoint</TableHead>
+                  <TableHead>Timeouts</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="w-[120px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredServices.map((service) => (
+                  <TableRow key={service.id}>
+                    <TableCell>
+                      <div className="font-medium">{service.name}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Protocol: {service.protocol || "http"}
+                      </div>
+                      {service.tags?.length ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {service.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatServiceEndpoint(service)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <div>Connect: {service.connectTimeout ?? "—"}ms</div>
+                      <div>Write: {service.writeTimeout ?? "—"}ms</div>
+                      <div>Read: {service.readTimeout ?? "—"}ms</div>
+                      <div>Retries: {service.retries ?? 0}</div>
+                    </TableCell>
+                    <TableCell>
+                      {formatTimestamp(service.updatedAt, settings.showRelativeTimes)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(service)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void handleDelete(service)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingService ? "Edit service" : "Create service"}</DialogTitle>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={formState.name}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="orders-service"
+                required
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor="url">URL</Label>
                 <Input
                   id="url"
                   type="url"
-                  value={formData.url || ""}
-                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                  value={formState.url}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, url: event.target.value }))
+                  }
                   placeholder="http://localhost:8080"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="protocol">Protocol</Label>
-                  <select
-                    id="protocol"
-                    value={formData.protocol}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        protocol: e.target.value as ServiceFormData["protocol"],
-                      })
-                    }
-                    className="flex h-10 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="http">http</option>
-                    <option value="https">https</option>
-                    <option value="grpc">grpc</option>
-                    <option value="grpcs">grpcs</option>
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="host">Host</Label>
-                  <Input
-                    id="host"
-                    value={formData.host || ""}
-                    onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-                    placeholder="localhost"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="protocol">Protocol</Label>
+                <Select
+                  id="protocol"
+                  value={formState.protocol}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      protocol: event.target.value as ServiceFormState["protocol"],
+                    }))
+                  }
+                >
+                  <option value="http">http</option>
+                  <option value="https">https</option>
+                  <option value="grpc">grpc</option>
+                  <option value="grpcs">grpcs</option>
+                </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="port">Port</Label>
-                  <Input
-                    id="port"
-                    type="number"
-                    value={formData.port || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        port: e.target.value ? Number(e.target.value) : undefined,
-                      })
-                    }
-                    placeholder="8080"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="path">Path</Label>
-                  <Input
-                    id="path"
-                    value={formData.path || ""}
-                    onChange={(e) => setFormData({ ...formData, path: e.target.value })}
-                    placeholder="/api"
-                  />
-                </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="host">Host</Label>
+                <Input
+                  id="host"
+                  value={formState.host}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, host: event.target.value }))
+                  }
+                  placeholder="localhost"
+                />
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="connectTimeout">Connect Timeout</Label>
-                  <Input
-                    id="connectTimeout"
-                    type="number"
-                    value={formData.connectTimeout || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        connectTimeout: e.target.value ? Number(e.target.value) : undefined,
-                      })
-                    }
-                    placeholder="60000"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="writeTimeout">Write Timeout</Label>
-                  <Input
-                    id="writeTimeout"
-                    type="number"
-                    value={formData.writeTimeout || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        writeTimeout: e.target.value ? Number(e.target.value) : undefined,
-                      })
-                    }
-                    placeholder="60000"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="readTimeout">Read Timeout</Label>
-                  <Input
-                    id="readTimeout"
-                    type="number"
-                    value={formData.readTimeout || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        readTimeout: e.target.value ? Number(e.target.value) : undefined,
-                      })
-                    }
-                    placeholder="60000"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="port">Port</Label>
+                <Input
+                  id="port"
+                  type="number"
+                  value={formState.port}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, port: event.target.value }))
+                  }
+                  placeholder="8080"
+                />
               </div>
-              <div>
+              <div className="space-y-2">
+                <Label htmlFor="path">Path</Label>
+                <Input
+                  id="path"
+                  value={formState.path}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, path: event.target.value }))
+                  }
+                  placeholder="/api"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="connectTimeout">Connect timeout</Label>
+                <Input
+                  id="connectTimeout"
+                  type="number"
+                  value={formState.connectTimeout}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      connectTimeout: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="writeTimeout">Write timeout</Label>
+                <Input
+                  id="writeTimeout"
+                  type="number"
+                  value={formState.writeTimeout}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, writeTimeout: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="readTimeout">Read timeout</Label>
+                <Input
+                  id="readTimeout"
+                  type="number"
+                  value={formState.readTimeout}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, readTimeout: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="retries">Retries</Label>
                 <Input
                   id="retries"
                   type="number"
-                  value={formData.retries || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      retries: e.target.value ? Number(e.target.value) : undefined,
-                    })
+                  value={formState.retries}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, retries: event.target.value }))
                   }
-                  placeholder="5"
                 />
               </div>
-              <div>
-                <Label htmlFor="tags">Tags (comma separated)</Label>
-                <Input
-                  id="tags"
-                  value={formData.tags || ""}
-                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  placeholder="production, api"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">{editingService ? "Update" : "Create"}</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search services..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <Label htmlFor="tags">Tags</Label>
+              <Input
+                id="tags"
+                value={formState.tags}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, tags: event.target.value }))
+                }
+                placeholder="internal, primary"
+              />
+            </div>
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Protocol</TableHead>
-              <TableHead>Host</TableHead>
-              <TableHead>Port</TableHead>
-              <TableHead>Path</TableHead>
-              <TableHead>Tags</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : filteredServices.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No services found. Click "Add Service" to create one.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredServices.map((service) => (
-                <TableRow key={service.id}>
-                  <TableCell className="font-medium">{service.name}</TableCell>
-                  <TableCell>{service.protocol || "-"}</TableCell>
-                  <TableCell>{service.host || "-"}</TableCell>
-                  <TableCell>{service.port || "-"}</TableCell>
-                  <TableCell>{service.path || "-"}</TableCell>
-                  <TableCell>
-                    {service.tags && service.tags.length > 0 ? (
-                      <div className="flex gap-1 flex-wrap">
-                        {service.tags.map((tag, i) => (
-                          <span
-                            key={i}
-                            className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(service)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(service.id, service.name)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {editingService ? "Save Changes" : "Create Service"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function MetricCard(props: {
+  icon: typeof Server;
+  label: string;
+  value: number;
+  description: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-sm">{props.label}</CardTitle>
+          <CardDescription>{props.description}</CardDescription>
+        </div>
+        <props.icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-3xl font-semibold">{props.value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatServiceEndpoint(service: Service): string {
+  if (service.url) {
+    return service.url;
+  }
+
+  if (!service.host) {
+    return "No endpoint configured";
+  }
+
+  const port = service.port ? `:${service.port}` : "";
+  return `${service.protocol || "http"}://${service.host}${port}${service.path || ""}`;
 }

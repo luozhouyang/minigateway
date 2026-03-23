@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -18,382 +20,560 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
-import { pluginsApi, type Plugin } from "@/lib/api/client";
+import {
+  consumersApi,
+  pluginsApi,
+  routesApi,
+  servicesApi,
+  type Consumer,
+  type Plugin,
+  type Route as RouteConfig,
+  type Service,
+} from "@/lib/api/client";
+import { useDashboardSettings } from "@/lib/dashboard-settings";
+import {
+  buildScopeLabel,
+  confirmAction,
+  formatTimestamp,
+  getErrorMessage,
+  joinCommaSeparated,
+  parseCommaSeparatedInput,
+  parseJsonInput,
+  previewJson,
+  stringifyJson,
+} from "@/lib/dashboard-utils";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight } from "lucide-react";
+import {
+  Pencil,
+  Plug,
+  Plus,
+  RefreshCw,
+  Search,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/plugins/")({
-  component: PluginsList,
+  component: PluginsPage,
 });
 
-interface PluginFormData {
+interface PluginFormState {
   name: string;
-  serviceId?: string;
-  routeId?: string;
-  consumerId?: string;
-  config?: string;
+  serviceId: string;
+  routeId: string;
+  consumerId: string;
+  config: string;
   enabled: boolean;
-  tags?: string;
+  tags: string;
 }
 
-function PluginsList() {
+const EMPTY_FORM: PluginFormState = {
+  name: "",
+  serviceId: "",
+  routeId: "",
+  consumerId: "",
+  config: "{}",
+  enabled: true,
+  tags: "",
+};
+
+function PluginsPage() {
+  const { settings } = useDashboardSettings();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [routes, setRoutes] = useState<RouteConfig[]>([]);
+  const [consumers, setConsumers] = useState<Consumer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPlugin, setEditingPlugin] = useState<Plugin | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [formData, setFormData] = useState<PluginFormData>({
-    name: "",
-    serviceId: "",
-    routeId: "",
-    consumerId: "",
-    config: "{}",
-    enabled: true,
-    tags: "",
-  });
+  const [formState, setFormState] = useState<PluginFormState>(EMPTY_FORM);
 
   useEffect(() => {
-    void loadPlugins();
+    void loadData();
   }, []);
 
-  const loadPlugins = async () => {
+  async function loadData(isRefresh = false) {
     try {
-      setLoading(true);
-      const response = await pluginsApi.list();
-      setPlugins(response || []);
-    } catch (error) {
-      toast.error("Failed to load plugins", {
-        description: error instanceof Error ? error.message : undefined,
-      });
+      setError(null);
+
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      const [pluginList, serviceList, routeList, consumerList] = await Promise.all([
+        pluginsApi.list(),
+        servicesApi.list(),
+        routesApi.list(),
+        consumersApi.list(),
+      ]);
+
+      setPlugins(pluginList);
+      setServices(serviceList);
+      setRoutes(routeList);
+      setConsumers(consumerList);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError, "Failed to load plugins"));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }
 
-  const handleOpenDialog = (plugin?: Plugin) => {
-    if (plugin) {
-      setEditingPlugin(plugin);
-      setFormData({
-        name: plugin.name || "",
-        serviceId: plugin.serviceId || "",
-        routeId: plugin.routeId || "",
-        consumerId: plugin.consumerId || "",
-        config: JSON.stringify(plugin.config || {}, null, 2),
-        enabled: plugin.enabled ?? true,
-        tags: plugin.tags?.join(", ") || "",
-      });
-    } else {
-      setEditingPlugin(null);
-      setFormData({
-        name: "",
-        serviceId: "",
-        routeId: "",
-        consumerId: "",
-        config: "{}",
-        enabled: true,
-        tags: "",
-      });
-    }
+  function openCreateDialog() {
+    setEditingPlugin(null);
+    setFormState(EMPTY_FORM);
     setDialogOpen(true);
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  function openEditDialog(plugin: Plugin) {
+    setEditingPlugin(plugin);
+    setFormState({
+      name: plugin.name,
+      serviceId: plugin.serviceId || "",
+      routeId: plugin.routeId || "",
+      consumerId: plugin.consumerId || "",
+      config: stringifyJson(plugin.config || {}),
+      enabled: plugin.enabled ?? true,
+      tags: joinCommaSeparated(plugin.tags),
+    });
+    setDialogOpen(true);
+  }
 
-    let parsedConfig = {};
-    try {
-      parsedConfig = formData.config ? JSON.parse(formData.config) : {};
-    } catch {
-      toast.error("Invalid JSON", {
-        description: "Plugin config must be valid JSON",
-      });
-      return;
-    }
-
-    const payload = {
-      name: formData.name,
-      serviceId: formData.serviceId || undefined,
-      routeId: formData.routeId || undefined,
-      consumerId: formData.consumerId || undefined,
-      config: parsedConfig,
-      enabled: formData.enabled,
-      tags: formData.tags
-        ? formData.tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : undefined,
-    };
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     try {
+      setSaving(true);
+
+      const payload: Partial<Plugin> = {
+        name: formState.name.trim(),
+        serviceId: formState.serviceId || undefined,
+        routeId: formState.routeId || undefined,
+        consumerId: formState.consumerId || undefined,
+        config: parseJsonInput<Record<string, unknown>>(formState.config, "Plugin config"),
+        enabled: formState.enabled,
+        tags: parseCommaSeparatedInput(formState.tags),
+      };
+
       if (editingPlugin) {
         await pluginsApi.update(editingPlugin.id, payload);
-        toast.success("Plugin updated successfully");
+        toast.success("Plugin updated");
       } else {
         await pluginsApi.create(payload);
-        toast.success("Plugin created successfully");
+        toast.success("Plugin created");
       }
-      setDialogOpen(false);
-      void loadPlugins();
-    } catch (error) {
-      toast.error("Failed to save plugin", {
-        description: error instanceof Error ? error.message : undefined,
-      });
-    }
-  };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete plugin "${name}"?`)) {
+      setDialogOpen(false);
+      await loadData(true);
+    } catch (saveError) {
+      toast.error("Failed to save plugin", {
+        description: getErrorMessage(saveError),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(plugin: Plugin) {
+    const shouldDelete = await confirmAction(
+      `Delete plugin "${plugin.name}"? This cannot be undone.`,
+    );
+    if (!shouldDelete) {
       return;
     }
 
     try {
-      await pluginsApi.delete(id);
-      toast.success("Plugin deleted successfully");
-      void loadPlugins();
-    } catch (error) {
+      await pluginsApi.delete(plugin.id);
+      toast.success("Plugin deleted");
+      await loadData(true);
+    } catch (deleteError) {
       toast.error("Failed to delete plugin", {
-        description: error instanceof Error ? error.message : undefined,
+        description: getErrorMessage(deleteError),
       });
     }
-  };
+  }
 
-  const handleToggleEnabled = async (plugin: Plugin) => {
+  async function handleToggleEnabled(plugin: Plugin) {
     try {
-      await pluginsApi.update(plugin.id, { enabled: !plugin.enabled });
-      toast.success(`Plugin ${!plugin.enabled ? "enabled" : "disabled"}`);
-      void loadPlugins();
-    } catch (error) {
+      await pluginsApi.update(plugin.id, {
+        enabled: !(plugin.enabled ?? true),
+      });
+      toast.success(plugin.enabled ? "Plugin disabled" : "Plugin enabled");
+      await loadData(true);
+    } catch (toggleError) {
       toast.error("Failed to update plugin", {
-        description: error instanceof Error ? error.message : undefined,
+        description: getErrorMessage(toggleError),
       });
     }
-  };
+  }
 
-  const filteredPlugins = plugins.filter(
-    (plugin) =>
-      plugin.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      plugin.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
+  const serviceNameById = useMemo(
+    () => new Map(services.map((item) => [item.id, item.name])),
+    [services],
   );
+  const routeNameById = useMemo(
+    () => new Map(routes.map((item) => [item.id, item.name])),
+    [routes],
+  );
+  const consumerNameById = useMemo(
+    () => new Map(consumers.map((item) => [item.id, item.username || item.customId || item.id])),
+    [consumers],
+  );
+
+  const filteredPlugins = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return plugins;
+    }
+
+    return plugins.filter((plugin) => {
+      const haystack = [
+        plugin.name,
+        plugin.serviceId ? serviceNameById.get(plugin.serviceId) : "",
+        plugin.routeId ? routeNameById.get(plugin.routeId) : "",
+        plugin.consumerId ? consumerNameById.get(plugin.consumerId) : "",
+        joinCommaSeparated(plugin.tags),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [consumerNameById, plugins, routeNameById, searchQuery, serviceNameById]);
+
+  const enabledPlugins = plugins.filter((plugin) => plugin.enabled ?? true).length;
+  const scopedPlugins = plugins.filter(
+    (plugin) => plugin.serviceId || plugin.routeId || plugin.consumerId,
+  ).length;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-sm text-muted-foreground">Loading plugins…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Plugins</h1>
-          <p className="text-sm text-muted-foreground">Manage API plugins and extensions</p>
+          <p className="text-sm text-muted-foreground">
+            Configure policies and middleware for services, routes, consumers, or globally.
+          </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenDialog()}>
-              <Plus className="h-4 w-4" />
-              Add Plugin
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{editingPlugin ? "Edit" : "Create"} Plugin</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Plugin Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="rate-limiting"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="serviceId">Service ID</Label>
-                  <Input
-                    id="serviceId"
-                    value={formData.serviceId || ""}
-                    onChange={(e) => setFormData({ ...formData, serviceId: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="routeId">Route ID</Label>
-                  <Input
-                    id="routeId"
-                    value={formData.routeId || ""}
-                    onChange={(e) => setFormData({ ...formData, routeId: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="consumerId">Consumer ID</Label>
-                  <Input
-                    id="consumerId"
-                    value={formData.consumerId || ""}
-                    onChange={(e) => setFormData({ ...formData, consumerId: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="config">Config (JSON)</Label>
-                <textarea
-                  id="config"
-                  value={formData.config || "{}"}
-                  onChange={(e) => setFormData({ ...formData, config: e.target.value })}
-                  className="flex h-32 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono text-sm"
-                  placeholder='{"key": "value"}'
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="enabled"
-                  checked={formData.enabled}
-                  onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                  className="h-4 w-4 rounded border-input"
-                />
-                <Label htmlFor="enabled">Enabled</Label>
-              </div>
-              <div>
-                <Label htmlFor="tags">Tags (comma separated)</Label>
-                <Input
-                  id="tags"
-                  value={formData.tags || ""}
-                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  placeholder="production, security"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">{editingPlugin ? "Update" : "Create"}</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void loadData(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button type="button" onClick={openCreateDialog}>
+            <Plus className="h-4 w-4" />
+            Add Plugin
+          </Button>
+        </div>
+      </div>
+
+      {error ? (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-destructive">Unable to load plugins</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          label="Total plugins"
+          value={plugins.length}
+          description="All installed plugins"
+        />
+        <MetricCard
+          label="Enabled"
+          value={enabledPlugins}
+          description="Currently active policies"
+        />
+        <MetricCard
+          label="Scoped"
+          value={scopedPlugins}
+          description="Bound to a route, service, or consumer"
+        />
       </div>
 
       <Card>
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle>Plugin bindings</CardTitle>
+            <CardDescription>
+              {filteredPlugins.length} of {plugins.length} plugins shown
+            </CardDescription>
+          </div>
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search plugins..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search by name, scope, or tag"
               className="pl-9"
             />
           </div>
+        </CardHeader>
+        <CardContent>
+          {filteredPlugins.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border px-6 py-12 text-center">
+              <p className="text-sm font-medium text-foreground">No plugins matched</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Adjust the search query or create a new plugin.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Plugin</TableHead>
+                  <TableHead>Scope</TableHead>
+                  <TableHead>Config</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="w-[160px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPlugins.map((plugin) => (
+                  <TableRow key={plugin.id}>
+                    <TableCell>
+                      <div className="font-medium">{plugin.name}</div>
+                      {plugin.tags?.length ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {plugin.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {buildScopeLabel([
+                        plugin.serviceId
+                          ? `service:${serviceNameById.get(plugin.serviceId) || plugin.serviceId}`
+                          : null,
+                        plugin.routeId
+                          ? `route:${routeNameById.get(plugin.routeId) || plugin.routeId}`
+                          : null,
+                        plugin.consumerId
+                          ? `consumer:${consumerNameById.get(plugin.consumerId) || plugin.consumerId}`
+                          : null,
+                      ])}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm text-muted-foreground">
+                      {previewJson(plugin.config || {}, 120)}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleEnabled(plugin)}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-foreground"
+                      >
+                        {(plugin.enabled ?? true) ? (
+                          <ToggleRight className="h-5 w-5 text-emerald-600" />
+                        ) : (
+                          <ToggleLeft className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        {(plugin.enabled ?? true) ? "Enabled" : "Disabled"}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      {formatTimestamp(plugin.updatedAt, settings.showRelativeTimes)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(plugin)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void handleDelete(plugin)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Scope</TableHead>
-              <TableHead>Config</TableHead>
-              <TableHead>Tags</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : filteredPlugins.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No plugins found. Click "Add Plugin" to create one.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredPlugins.map((plugin) => (
-                <TableRow key={plugin.id}>
-                  <TableCell className="font-medium">{plugin.name || "-"}</TableCell>
-                  <TableCell>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      {plugin.serviceId && (
-                        <div>
-                          <span className="font-medium">Service:</span> {plugin.serviceId}
-                        </div>
-                      )}
-                      {plugin.routeId && (
-                        <div>
-                          <span className="font-medium">Route:</span> {plugin.routeId}
-                        </div>
-                      )}
-                      {plugin.consumerId && (
-                        <div>
-                          <span className="font-medium">Consumer:</span> {plugin.consumerId}
-                        </div>
-                      )}
-                      {!plugin.serviceId && !plugin.routeId && !plugin.consumerId && (
-                        <span className="text-muted-foreground">Global</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {plugin.config && Object.keys(plugin.config).length > 0 ? (
-                      <pre className="text-xs bg-muted rounded px-2 py-1 max-w-[200px] overflow-auto">
-                        {JSON.stringify(plugin.config, null, 2)}
-                      </pre>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {plugin.tags && plugin.tags.length > 0 ? (
-                      <div className="flex gap-1 flex-wrap">
-                        {plugin.tags.map((tag, i) => (
-                          <span
-                            key={i}
-                            className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => handleToggleEnabled(plugin)}>
-                      {plugin.enabled ? (
-                        <ToggleLeft className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <ToggleRight className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(plugin)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(plugin.id, plugin.name || plugin.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingPlugin ? "Edit plugin" : "Create plugin"}</DialogTitle>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="plugin-name">Name</Label>
+              <Input
+                id="plugin-name"
+                value={formState.name}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="rate-limit"
+                required
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="plugin-service">Service scope</Label>
+                <Select
+                  id="plugin-service"
+                  value={formState.serviceId}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, serviceId: event.target.value }))
+                  }
+                >
+                  <option value="">Global</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="plugin-route">Route scope</Label>
+                <Select
+                  id="plugin-route"
+                  value={formState.routeId}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, routeId: event.target.value }))
+                  }
+                >
+                  <option value="">Global</option>
+                  {routes.map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {route.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="plugin-consumer">Consumer scope</Label>
+                <Select
+                  id="plugin-consumer"
+                  value={formState.consumerId}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, consumerId: event.target.value }))
+                  }
+                >
+                  <option value="">Global</option>
+                  {consumers.map((consumer) => (
+                    <option key={consumer.id} value={consumer.id}>
+                      {consumer.username || consumer.customId || consumer.id}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
+              <input
+                type="checkbox"
+                checked={formState.enabled}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, enabled: event.target.checked }))
+                }
+                className="h-4 w-4 rounded border-input"
+              />
+              <div>
+                <p className="text-sm font-medium text-foreground">Plugin enabled</p>
+                <p className="text-xs text-muted-foreground">
+                  Disabled plugins remain stored but do not execute.
+                </p>
+              </div>
+            </label>
+
+            <div className="space-y-2">
+              <Label htmlFor="plugin-config">Config JSON</Label>
+              <textarea
+                id="plugin-config"
+                value={formState.config}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, config: event.target.value }))
+                }
+                className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder='{"minute": 100}'
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="plugin-tags">Tags</Label>
+              <Input
+                id="plugin-tags"
+                value={formState.tags}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, tags: event.target.value }))
+                }
+                placeholder="security, production"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {editingPlugin ? "Save Changes" : "Create Plugin"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function MetricCard(props: { label: string; value: number; description: string }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-sm">{props.label}</CardTitle>
+          <CardDescription>{props.description}</CardDescription>
+        </div>
+        <Plug className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-3xl font-semibold">{props.value}</div>
+      </CardContent>
+    </Card>
   );
 }

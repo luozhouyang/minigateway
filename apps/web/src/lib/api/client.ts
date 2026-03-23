@@ -1,6 +1,8 @@
-// API Client for Token Gateway Admin API
+// API client for Token Gateway Admin API.
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "/admin";
+import { DEFAULT_DASHBOARD_SETTINGS, readDashboardSettings } from "@/lib/dashboard-settings";
+
+const DEFAULT_PAGE_LIMIT = 100;
 
 // Type exports from packages/core
 export interface Service {
@@ -99,30 +101,39 @@ export interface PaginationParams {
   offset?: number;
 }
 
-export interface PaginationResult<T> {
-  data: T[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
 export interface ApiResponse<T> {
-  success: boolean;
   data: T;
-  message?: string;
+  meta?: Record<string, unknown>;
 }
 
 export interface ApiListResponse<T> {
-  success: boolean;
   data: T[];
-  total: number;
-  limit: number;
-  offset: number;
+  meta?: {
+    page?: number;
+    per_page?: number;
+    total?: number;
+  };
 }
 
-// Base fetch wrapper with error handling
+function getApiBaseUrl() {
+  return readDashboardSettings().apiBaseUrl || DEFAULT_DASHBOARD_SETTINGS.apiBaseUrl;
+}
+
+function buildQueryString(params?: Record<string, string | number | boolean | undefined>) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  });
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+}
+
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
+  const url = `${getApiBaseUrl()}${endpoint}`;
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
@@ -135,25 +146,61 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const error = await response.json().catch(() => ({ error: { message: "Request failed" } }));
+
+    const message = error?.error?.message || error?.message || `HTTP ${response.status}`;
+
+    throw new Error(message);
   }
 
   const result = await response.json();
   return result as T;
 }
 
+async function fetchListPage<T>(
+  endpoint: string,
+  params?: PaginationParams,
+): Promise<ApiListResponse<T>> {
+  return fetchApi<ApiListResponse<T>>(
+    `${endpoint}${buildQueryString({
+      limit: params?.limit,
+      offset: params?.offset,
+    })}`,
+  );
+}
+
+async function fetchAllListItems<T>(endpoint: string): Promise<T[]> {
+  const items: T[] = [];
+  let offset = 0;
+
+  for (;;) {
+    const page = await fetchListPage<T>(endpoint, {
+      limit: DEFAULT_PAGE_LIMIT,
+      offset,
+    });
+
+    items.push(...page.data);
+
+    const total = page.meta?.total ?? items.length;
+    if (items.length >= total || page.data.length === 0) {
+      break;
+    }
+
+    offset += page.data.length;
+  }
+
+  return items;
+}
+
 // Services API
 export const servicesApi = {
   list: async (params?: PaginationParams): Promise<Service[]> => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set("limit", String(params.limit));
-    if (params?.offset) searchParams.set("offset", String(params.offset));
-    const query = searchParams.toString();
-    const response = await fetchApi<ApiListResponse<Service>>(
-      `/services${query ? `?${query}` : ""}`,
-    );
-    return response.data;
+    if (params?.limit !== undefined || params?.offset !== undefined) {
+      const response = await fetchListPage<Service>("/services", params);
+      return response.data;
+    }
+
+    return fetchAllListItems<Service>("/services");
   },
 
   get: async (id: string): Promise<Service> => {
@@ -187,12 +234,12 @@ export const servicesApi = {
 // Routes API
 export const routesApi = {
   list: async (params?: PaginationParams): Promise<Route[]> => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set("limit", String(params.limit));
-    if (params?.offset) searchParams.set("offset", String(params.offset));
-    const query = searchParams.toString();
-    const response = await fetchApi<ApiListResponse<Route>>(`/routes${query ? `?${query}` : ""}`);
-    return response.data;
+    if (params?.limit !== undefined || params?.offset !== undefined) {
+      const response = await fetchListPage<Route>("/routes", params);
+      return response.data;
+    }
+
+    return fetchAllListItems<Route>("/routes");
   },
 
   get: async (id: string): Promise<Route> => {
@@ -226,14 +273,12 @@ export const routesApi = {
 // Upstreams API
 export const upstreamsApi = {
   list: async (params?: PaginationParams): Promise<Upstream[]> => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set("limit", String(params.limit));
-    if (params?.offset) searchParams.set("offset", String(params.offset));
-    const query = searchParams.toString();
-    const response = await fetchApi<ApiListResponse<Upstream>>(
-      `/upstreams${query ? `?${query}` : ""}`,
-    );
-    return response.data;
+    if (params?.limit !== undefined || params?.offset !== undefined) {
+      const response = await fetchListPage<Upstream>("/upstreams", params);
+      return response.data;
+    }
+
+    return fetchAllListItems<Upstream>("/upstreams");
   },
 
   get: async (id: string): Promise<Upstream> => {
@@ -267,14 +312,12 @@ export const upstreamsApi = {
 // Targets API
 export const targetsApi = {
   list: async (upstreamId: string, params?: PaginationParams): Promise<Target[]> => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set("limit", String(params.limit));
-    if (params?.offset) searchParams.set("offset", String(params.offset));
-    const query = searchParams.toString();
-    const response = await fetchApi<ApiListResponse<Target>>(
-      `/upstreams/${upstreamId}/targets${query ? `?${query}` : ""}`,
-    );
-    return response.data;
+    if (params?.limit !== undefined || params?.offset !== undefined) {
+      const response = await fetchListPage<Target>(`/upstreams/${upstreamId}/targets`, params);
+      return response.data;
+    }
+
+    return fetchAllListItems<Target>(`/upstreams/${upstreamId}/targets`);
   },
 
   get: async (upstreamId: string, id: string): Promise<Target> => {
@@ -308,14 +351,12 @@ export const targetsApi = {
 // Consumers API
 export const consumersApi = {
   list: async (params?: PaginationParams): Promise<Consumer[]> => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set("limit", String(params.limit));
-    if (params?.offset) searchParams.set("offset", String(params.offset));
-    const query = searchParams.toString();
-    const response = await fetchApi<ApiListResponse<Consumer>>(
-      `/consumers${query ? `?${query}` : ""}`,
-    );
-    return response.data;
+    if (params?.limit !== undefined || params?.offset !== undefined) {
+      const response = await fetchListPage<Consumer>("/consumers", params);
+      return response.data;
+    }
+
+    return fetchAllListItems<Consumer>("/consumers");
   },
 
   get: async (id: string): Promise<Consumer> => {
@@ -349,14 +390,15 @@ export const consumersApi = {
 // Credentials API
 export const credentialsApi = {
   list: async (consumerId: string, params?: PaginationParams): Promise<Credential[]> => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set("limit", String(params.limit));
-    if (params?.offset) searchParams.set("offset", String(params.offset));
-    const query = searchParams.toString();
-    const response = await fetchApi<ApiListResponse<Credential>>(
-      `/consumers/${consumerId}/credentials${query ? `?${query}` : ""}`,
-    );
-    return response.data;
+    if (params?.limit !== undefined || params?.offset !== undefined) {
+      const response = await fetchListPage<Credential>(
+        `/consumers/${consumerId}/credentials`,
+        params,
+      );
+      return response.data;
+    }
+
+    return fetchAllListItems<Credential>(`/consumers/${consumerId}/credentials`);
   },
 
   get: async (consumerId: string, id: string): Promise<Credential> => {
@@ -402,12 +444,12 @@ export const credentialsApi = {
 // Plugins API
 export const pluginsApi = {
   list: async (params?: PaginationParams): Promise<Plugin[]> => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set("limit", String(params.limit));
-    if (params?.offset) searchParams.set("offset", String(params.offset));
-    const query = searchParams.toString();
-    const response = await fetchApi<ApiListResponse<Plugin>>(`/plugins${query ? `?${query}` : ""}`);
-    return response.data;
+    if (params?.limit !== undefined || params?.offset !== undefined) {
+      const response = await fetchListPage<Plugin>("/plugins", params);
+      return response.data;
+    }
+
+    return fetchAllListItems<Plugin>("/plugins");
   },
 
   get: async (id: string): Promise<Plugin> => {
@@ -439,14 +481,26 @@ export const pluginsApi = {
 };
 
 // Dashboard API - get stats
-export async function getDashboardStats(): Promise<
-  ApiResponse<{
-    services: number;
-    routes: number;
-    upstreams: number;
-    consumers: number;
-    plugins: number;
-  }>
-> {
-  return fetchApi("/dashboard/stats");
+export async function getDashboardStats(): Promise<{
+  services: number;
+  routes: number;
+  upstreams: number;
+  consumers: number;
+  plugins: number;
+}> {
+  const [services, routes, upstreams, consumers, plugins] = await Promise.all([
+    servicesApi.list(),
+    routesApi.list(),
+    upstreamsApi.list(),
+    consumersApi.list(),
+    pluginsApi.list(),
+  ]);
+
+  return {
+    services: services.length,
+    routes: routes.length,
+    upstreams: upstreams.length,
+    consumers: consumers.length,
+    plugins: plugins.length,
+  };
 }

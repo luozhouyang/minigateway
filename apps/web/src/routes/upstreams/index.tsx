@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -18,552 +20,707 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
-import { upstreamsApi, targetsApi, type Upstream, type Target } from "@/lib/api/client";
+import { targetsApi, upstreamsApi, type Target, type Upstream } from "@/lib/api/client";
+import { useDashboardSettings } from "@/lib/dashboard-settings";
+import {
+  confirmAction,
+  formatTimestamp,
+  getErrorMessage,
+  joinCommaSeparated,
+  parseCommaSeparatedInput,
+  parseJsonInput,
+  parseOptionalNumber,
+  previewJson,
+  stringifyJson,
+} from "@/lib/dashboard-utils";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, Server } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Search, Server, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/upstreams/")({
-  component: UpstreamsList,
+  component: UpstreamsPage,
 });
 
-interface UpstreamFormData {
+interface UpstreamFormState {
   name: string;
-  algorithm?: string;
-  hashOn?: string;
-  hashFallback?: string;
-  slots?: number;
-  tags?: string;
+  algorithm: string;
+  hashOn: string;
+  hashFallback: string;
+  slots: string;
+  healthcheck: string;
+  tags: string;
 }
 
-interface TargetFormData {
+interface TargetFormState {
   target: string;
-  weight?: number;
-  tags?: string;
+  weight: string;
+  tags: string;
 }
 
-function UpstreamsList() {
+const EMPTY_UPSTREAM_FORM: UpstreamFormState = {
+  name: "",
+  algorithm: "round-robin",
+  hashOn: "none",
+  hashFallback: "none",
+  slots: "10000",
+  healthcheck: "{}",
+  tags: "",
+};
+
+const EMPTY_TARGET_FORM: TargetFormState = {
+  target: "",
+  weight: "100",
+  tags: "",
+};
+
+function UpstreamsPage() {
+  const { settings } = useDashboardSettings();
   const [upstreams, setUpstreams] = useState<Upstream[]>([]);
-  const [targets, setTargets] = useState<Record<string, Target[]>>({});
-  const [_loading, _setLoading] = useState(true);
+  const [targetsByUpstream, setTargetsByUpstream] = useState<Record<string, Target[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [savingUpstream, setSavingUpstream] = useState(false);
+  const [savingTarget, setSavingTarget] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [upstreamDialogOpen, setUpstreamDialogOpen] = useState(false);
   const [targetDialogOpen, setTargetDialogOpen] = useState(false);
   const [editingUpstream, setEditingUpstream] = useState<Upstream | null>(null);
-  const [editingTarget, setEditingTarget] = useState<{
+  const [targetContext, setTargetContext] = useState<{
     upstreamId: string;
     target: Target | null;
   } | null>(null);
-  const [selectedUpstream, setSelectedUpstream] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const [upstreamFormData, setUpstreamFormData] = useState<UpstreamFormData>({
-    name: "",
-    algorithm: "round-robin",
-    hashOn: "none",
-    hashFallback: "none",
-    slots: 10000,
-    tags: "",
-  });
-
-  const [targetFormData, setTargetFormData] = useState<TargetFormData>({
-    target: "",
-    weight: 100,
-    tags: "",
-  });
+  const [upstreamFormState, setUpstreamFormState] =
+    useState<UpstreamFormState>(EMPTY_UPSTREAM_FORM);
+  const [targetFormState, setTargetFormState] = useState<TargetFormState>(EMPTY_TARGET_FORM);
 
   useEffect(() => {
-    void loadUpstreams();
+    void loadData();
   }, []);
 
-  const loadUpstreams = async () => {
+  async function loadData(isRefresh = false) {
     try {
-      _setLoading(true);
-      const response = await upstreamsApi.list();
-      setUpstreams(response || []);
-      // Load targets for each upstream
-      for (const upstream of response || []) {
-        await loadTargets(upstream.id);
+      setError(null);
+
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
-    } catch (error) {
-      toast.error("Failed to load upstreams", {
-        description: error instanceof Error ? error.message : undefined,
-      });
+
+      const upstreamList = await upstreamsApi.list();
+      const targetEntries = await Promise.all(
+        upstreamList.map(async (upstream) => {
+          const targets = await targetsApi.list(upstream.id);
+          return [upstream.id, targets] as const;
+        }),
+      );
+
+      setUpstreams(upstreamList);
+      setTargetsByUpstream(Object.fromEntries(targetEntries));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError, "Failed to load upstreams"));
     } finally {
-      _setLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }
 
-  const loadTargets = async (upstreamId: string) => {
-    try {
-      const response = await targetsApi.list(upstreamId);
-      setTargets((prev) => ({ ...prev, [upstreamId]: response || [] }));
-    } catch {
-      // Silently fail for targets
-    }
-  };
-
-  const handleOpenUpstreamDialog = (upstream?: Upstream) => {
-    if (upstream) {
-      setEditingUpstream(upstream);
-      setUpstreamFormData({
-        name: upstream.name,
-        algorithm: upstream.algorithm || "round-robin",
-        hashOn: upstream.hashOn || "none",
-        hashFallback: upstream.hashFallback || "none",
-        slots: upstream.slots || 10000,
-        tags: upstream.tags?.join(", ") || "",
-      });
-    } else {
-      setEditingUpstream(null);
-      setUpstreamFormData({
-        name: "",
-        algorithm: "round-robin",
-        hashOn: "none",
-        hashFallback: "none",
-        slots: 10000,
-        tags: "",
-      });
-    }
+  function openCreateUpstreamDialog() {
+    setEditingUpstream(null);
+    setUpstreamFormState(EMPTY_UPSTREAM_FORM);
     setUpstreamDialogOpen(true);
-  };
+  }
 
-  const handleOpenTargetDialog = (upstreamId: string, target?: Target) => {
-    setSelectedUpstream(upstreamId);
-    if (target) {
-      setEditingTarget({ upstreamId, target });
-      setTargetFormData({
-        target: target.target,
-        weight: target.weight || 100,
-        tags: target.tags?.join(", ") || "",
-      });
-    } else {
-      setEditingTarget({ upstreamId, target: null });
-      setTargetFormData({
-        target: "",
-        weight: 100,
-        tags: "",
-      });
-    }
+  function openEditUpstreamDialog(upstream: Upstream) {
+    setEditingUpstream(upstream);
+    setUpstreamFormState({
+      name: upstream.name,
+      algorithm: upstream.algorithm || "round-robin",
+      hashOn: upstream.hashOn || "none",
+      hashFallback: upstream.hashFallback || "none",
+      slots: String(upstream.slots ?? 10000),
+      healthcheck: stringifyJson(upstream.healthcheck || {}),
+      tags: joinCommaSeparated(upstream.tags),
+    });
+    setUpstreamDialogOpen(true);
+  }
+
+  function openCreateTargetDialog(upstreamId: string) {
+    setTargetContext({ upstreamId, target: null });
+    setTargetFormState(EMPTY_TARGET_FORM);
     setTargetDialogOpen(true);
-  };
+  }
 
-  const handleUpstreamSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  function openEditTargetDialog(upstreamId: string, target: Target) {
+    setTargetContext({ upstreamId, target });
+    setTargetFormState({
+      target: target.target,
+      weight: String(target.weight ?? 100),
+      tags: joinCommaSeparated(target.tags),
+    });
+    setTargetDialogOpen(true);
+  }
 
-    const payload = {
-      name: upstreamFormData.name,
-      algorithm: upstreamFormData.algorithm,
-      hashOn: upstreamFormData.hashOn,
-      hashFallback: upstreamFormData.hashFallback,
-      slots: upstreamFormData.slots,
-      tags: upstreamFormData.tags
-        ? upstreamFormData.tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : undefined,
-    };
+  async function handleUpstreamSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     try {
+      setSavingUpstream(true);
+
+      const payload: Partial<Upstream> = {
+        name: upstreamFormState.name.trim(),
+        algorithm: upstreamFormState.algorithm,
+        hashOn: upstreamFormState.hashOn,
+        hashFallback: upstreamFormState.hashFallback,
+        slots: parseOptionalNumber(upstreamFormState.slots),
+        healthcheck: parseJsonInput<Record<string, unknown>>(
+          upstreamFormState.healthcheck,
+          "Healthcheck",
+        ),
+        tags: parseCommaSeparatedInput(upstreamFormState.tags),
+      };
+
       if (editingUpstream) {
         await upstreamsApi.update(editingUpstream.id, payload);
-        toast.success("Upstream updated successfully");
+        toast.success("Upstream updated");
       } else {
         await upstreamsApi.create(payload);
-        toast.success("Upstream created successfully");
+        toast.success("Upstream created");
       }
+
       setUpstreamDialogOpen(false);
-      void loadUpstreams();
-    } catch (error) {
+      await loadData(true);
+    } catch (saveError) {
       toast.error("Failed to save upstream", {
-        description: error instanceof Error ? error.message : undefined,
+        description: getErrorMessage(saveError),
       });
+    } finally {
+      setSavingUpstream(false);
     }
-  };
+  }
 
-  const handleTargetSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedUpstream) return;
-
-    const payload = {
-      target: targetFormData.target,
-      weight: targetFormData.weight,
-      tags: targetFormData.tags
-        ? targetFormData.tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : undefined,
-    };
+  async function handleTargetSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!targetContext) {
+      return;
+    }
 
     try {
-      if (editingTarget?.target) {
-        await targetsApi.update(selectedUpstream, editingTarget.target.id, payload);
-        toast.success("Target updated successfully");
+      setSavingTarget(true);
+
+      const payload: Partial<Target> = {
+        target: targetFormState.target.trim(),
+        weight: parseOptionalNumber(targetFormState.weight),
+        tags: parseCommaSeparatedInput(targetFormState.tags),
+      };
+
+      if (targetContext.target) {
+        await targetsApi.update(targetContext.upstreamId, targetContext.target.id, payload);
+        toast.success("Target updated");
       } else {
-        await targetsApi.create(selectedUpstream, payload);
-        toast.success("Target created successfully");
+        await targetsApi.create(targetContext.upstreamId, payload);
+        toast.success("Target created");
       }
+
       setTargetDialogOpen(false);
-      await loadTargets(selectedUpstream);
-    } catch (error) {
+      await loadData(true);
+    } catch (saveError) {
       toast.error("Failed to save target", {
-        description: error instanceof Error ? error.message : undefined,
+        description: getErrorMessage(saveError),
       });
+    } finally {
+      setSavingTarget(false);
     }
-  };
+  }
 
-  const handleDeleteUpstream = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete upstream "${name}"?`)) {
+  async function handleDeleteUpstream(upstream: Upstream) {
+    const shouldDelete = await confirmAction(
+      `Delete upstream "${upstream.name}"? Existing targets will be lost.`,
+    );
+    if (!shouldDelete) {
       return;
     }
 
     try {
-      await upstreamsApi.delete(id);
-      toast.success("Upstream deleted successfully");
-      void loadUpstreams();
-    } catch (error) {
+      await upstreamsApi.delete(upstream.id);
+      toast.success("Upstream deleted");
+      await loadData(true);
+    } catch (deleteError) {
       toast.error("Failed to delete upstream", {
-        description: error instanceof Error ? error.message : undefined,
+        description: getErrorMessage(deleteError),
       });
     }
-  };
+  }
 
-  const handleDeleteTarget = async (upstreamId: string, id: string, target: string) => {
-    if (!confirm(`Are you sure you want to delete target "${target}"?`)) {
+  async function handleDeleteTarget(upstreamId: string, target: Target) {
+    const shouldDelete = await confirmAction(
+      `Delete target "${target.target}" from this upstream?`,
+    );
+    if (!shouldDelete) {
       return;
     }
 
     try {
-      await targetsApi.delete(upstreamId, id);
-      toast.success("Target deleted successfully");
-      await loadTargets(upstreamId);
-    } catch (error) {
+      await targetsApi.delete(upstreamId, target.id);
+      toast.success("Target deleted");
+      await loadData(true);
+    } catch (deleteError) {
       toast.error("Failed to delete target", {
-        description: error instanceof Error ? error.message : undefined,
+        description: getErrorMessage(deleteError),
       });
     }
-  };
+  }
 
-  const filteredUpstreams = upstreams.filter((upstream) =>
-    upstream.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredUpstreams = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return upstreams;
+    }
+
+    return upstreams.filter((upstream) => {
+      const targets = targetsByUpstream[upstream.id] || [];
+      const haystack = [
+        upstream.name,
+        upstream.algorithm,
+        upstream.hashOn,
+        upstream.hashFallback,
+        joinCommaSeparated(upstream.tags),
+        ...targets.map((target) => target.target),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [searchQuery, targetsByUpstream, upstreams]);
+
+  const totalTargets = Object.values(targetsByUpstream).reduce(
+    (count, targets) => count + targets.length,
+    0,
   );
+  const hashUpstreams = upstreams.filter((upstream) => upstream.algorithm === "hash").length;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-sm text-muted-foreground">Loading upstreams…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Upstreams & Targets</h1>
+          <h1 className="text-2xl font-bold text-foreground">Upstreams</h1>
           <p className="text-sm text-muted-foreground">
-            Manage load balancing upstreams and their targets
+            Manage load balancing groups and the targets that receive traffic.
           </p>
         </div>
-        <Dialog open={upstreamDialogOpen} onOpenChange={setUpstreamDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenUpstreamDialog()}>
-              <Plus className="h-4 w-4" />
-              Add Upstream
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingUpstream ? "Edit" : "Create"} Upstream</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleUpstreamSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="upstreamName">Name *</Label>
-                <Input
-                  id="upstreamName"
-                  value={upstreamFormData.name}
-                  onChange={(e) =>
-                    setUpstreamFormData({ ...upstreamFormData, name: e.target.value })
-                  }
-                  placeholder="my-upstream"
-                  required
-                />
-              </div>
-              <div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void loadData(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button type="button" onClick={openCreateUpstreamDialog}>
+            <Plus className="h-4 w-4" />
+            Add Upstream
+          </Button>
+        </div>
+      </div>
+
+      {error ? (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-destructive">Unable to load upstreams</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          label="Total upstreams"
+          value={upstreams.length}
+          description="All balancing groups"
+        />
+        <MetricCard
+          label="Total targets"
+          value={totalTargets}
+          description="Backend nodes across every group"
+        />
+        <MetricCard
+          label="Hash algorithm"
+          value={hashUpstreams}
+          description="Upstreams using deterministic hashing"
+        />
+      </div>
+
+      <Card>
+        <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle>Upstream inventory</CardTitle>
+            <CardDescription>
+              {filteredUpstreams.length} of {upstreams.length} upstreams shown
+            </CardDescription>
+          </div>
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search by name, algorithm, tag, or target"
+              className="pl-9"
+            />
+          </div>
+        </CardHeader>
+      </Card>
+
+      <div className="space-y-4">
+        {filteredUpstreams.length === 0 ? (
+          <Card>
+            <CardContent className="px-6 py-12 text-center">
+              <p className="text-sm font-medium text-foreground">No upstreams matched</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Adjust the search query or create a new upstream.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredUpstreams.map((upstream) => {
+            const targets = targetsByUpstream[upstream.id] || [];
+
+            return (
+              <Card key={upstream.id}>
+                <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <CardTitle>{upstream.name}</CardTitle>
+                    <CardDescription>
+                      {upstream.algorithm || "round-robin"} · {targets.length} target(s) · slots{" "}
+                      {upstream.slots ?? 10000}
+                    </CardDescription>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span>Hash on: {upstream.hashOn || "none"}</span>
+                      <span>Fallback: {upstream.hashFallback || "none"}</span>
+                      <span>
+                        Updated: {formatTimestamp(upstream.updatedAt, settings.showRelativeTimes)}
+                      </span>
+                    </div>
+                    {upstream.tags?.length ? (
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {upstream.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openCreateTargetDialog(upstream.id)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Target
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEditUpstreamDialog(upstream)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => void handleDeleteUpstream(upstream)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border border-border bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Healthcheck
+                    </p>
+                    <p className="mt-2 font-mono text-sm text-foreground">
+                      {previewJson(upstream.healthcheck || {}, 180)}
+                    </p>
+                  </div>
+
+                  {targets.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+                      <p className="text-sm font-medium text-foreground">No targets yet</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Add a target so this upstream can forward traffic.
+                      </p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Target</TableHead>
+                          <TableHead>Weight</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead className="w-[120px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {targets.map((target) => (
+                          <TableRow key={target.id}>
+                            <TableCell>
+                              <div className="font-medium">{target.target}</div>
+                              {target.tags?.length ? (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {target.tags.map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </TableCell>
+                            <TableCell>{target.weight ?? 100}</TableCell>
+                            <TableCell>
+                              {formatTimestamp(target.createdAt, settings.showRelativeTimes)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openEditTargetDialog(upstream.id, target)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => void handleDeleteTarget(upstream.id, target)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      <Dialog open={upstreamDialogOpen} onOpenChange={setUpstreamDialogOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingUpstream ? "Edit upstream" : "Create upstream"}</DialogTitle>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleUpstreamSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="upstream-name">Name</Label>
+              <Input
+                id="upstream-name"
+                value={upstreamFormState.name}
+                onChange={(event) =>
+                  setUpstreamFormState((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="orders-upstream"
+                required
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor="algorithm">Algorithm</Label>
-                <select
+                <Select
                   id="algorithm"
-                  value={upstreamFormData.algorithm}
-                  onChange={(e) =>
-                    setUpstreamFormData({
-                      ...upstreamFormData,
-                      algorithm: e.target.value,
-                    })
+                  value={upstreamFormState.algorithm}
+                  onChange={(event) =>
+                    setUpstreamFormState((current) => ({
+                      ...current,
+                      algorithm: event.target.value,
+                    }))
                   }
-                  className="flex h-10 w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
                 >
                   <option value="round-robin">round-robin</option>
                   <option value="least-connections">least-connections</option>
                   <option value="hash">hash</option>
-                </select>
+                  <option value="weighted-round-robin">weighted-round-robin</option>
+                </Select>
               </div>
-              <div>
-                <Label htmlFor="hashOn">Hash On</Label>
-                <select
-                  id="hashOn"
-                  value={upstreamFormData.hashOn}
-                  onChange={(e) =>
-                    setUpstreamFormData({
-                      ...upstreamFormData,
-                      hashOn: e.target.value,
-                    })
-                  }
-                  className="flex h-10 w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-                >
-                  <option value="none">none</option>
-                  <option value="consumer">consumer</option>
-                  <option value="ip">ip</option>
-                  <option value="header">header</option>
-                  <option value="cookie">cookie</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="hashFallback">Hash Fallback</Label>
-                <select
-                  id="hashFallback"
-                  value={upstreamFormData.hashFallback}
-                  onChange={(e) =>
-                    setUpstreamFormData({
-                      ...upstreamFormData,
-                      hashFallback: e.target.value,
-                    })
-                  }
-                  className="flex h-10 w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-                >
-                  <option value="none">none</option>
-                  <option value="consumer">consumer</option>
-                  <option value="ip">ip</option>
-                  <option value="header">header</option>
-                  <option value="cookie">cookie</option>
-                </select>
-              </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="slots">Slots</Label>
                 <Input
                   id="slots"
                   type="number"
-                  value={upstreamFormData.slots}
-                  onChange={(e) =>
-                    setUpstreamFormData({
-                      ...upstreamFormData,
-                      slots: e.target.value ? Number(e.target.value) : 10000,
-                    })
+                  value={upstreamFormState.slots}
+                  onChange={(event) =>
+                    setUpstreamFormState((current) => ({ ...current, slots: event.target.value }))
                   }
-                  placeholder="10000"
                 />
               </div>
-              <div>
-                <Label htmlFor="upstreamTags">Tags (comma separated)</Label>
+              <div className="space-y-2">
+                <Label htmlFor="hashOn">Hash on</Label>
                 <Input
-                  id="upstreamTags"
-                  value={upstreamFormData.tags || ""}
-                  onChange={(e) =>
-                    setUpstreamFormData({ ...upstreamFormData, tags: e.target.value })
+                  id="hashOn"
+                  value={upstreamFormState.hashOn}
+                  onChange={(event) =>
+                    setUpstreamFormState((current) => ({ ...current, hashOn: event.target.value }))
                   }
-                  placeholder="production, api"
+                  placeholder="none"
                 />
               </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setUpstreamDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">{editingUpstream ? "Update" : "Create"}</Button>
+              <div className="space-y-2">
+                <Label htmlFor="hashFallback">Hash fallback</Label>
+                <Input
+                  id="hashFallback"
+                  value={upstreamFormState.hashFallback}
+                  onChange={(event) =>
+                    setUpstreamFormState((current) => ({
+                      ...current,
+                      hashFallback: event.target.value,
+                    }))
+                  }
+                  placeholder="none"
+                />
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <Card>
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search upstreams..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {filteredUpstreams.map((upstream) => {
-        const upstreamTargets = targets[upstream.id] || [];
-        return (
-          <Card key={upstream.id}>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Server className="h-5 w-5 text-foreground" />
-                  <div>
-                    <h3 className="font-semibold text-foreground">{upstream.name}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Algorithm: {upstream.algorithm || "round-robin"} • {upstreamTargets.length}{" "}
-                      target(s)
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleOpenTargetDialog(upstream.id)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Target
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleOpenUpstreamDialog(upstream)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteUpstream(upstream.id, upstream.name)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Weight</TableHead>
-                    <TableHead>Tags</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {upstreamTargets.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                        No targets configured. Click "Add Target" to add one.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    upstreamTargets.map((target) => (
-                      <TableRow key={target.id}>
-                        <TableCell className="font-medium">{target.target}</TableCell>
-                        <TableCell>{target.weight || 100}</TableCell>
-                        <TableCell>
-                          {target.tags && target.tags.length > 0 ? (
-                            <div className="flex gap-1 flex-wrap">
-                              {target.tags.map((tag, i) => (
-                                <span
-                                  key={i}
-                                  className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-foreground"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenTargetDialog(upstream.id, target)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() =>
-                                handleDeleteTarget(upstream.id, target.id, target.target)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
             </div>
-          </Card>
-        );
-      })}
 
-      {filteredUpstreams.length === 0 && (
-        <Card>
-          <div className="text-center py-8 text-muted-foreground">
-            No upstreams found. Click "Add Upstream" to create one.
-          </div>
-        </Card>
-      )}
+            <div className="space-y-2">
+              <Label htmlFor="healthcheck">Healthcheck JSON</Label>
+              <textarea
+                id="healthcheck"
+                value={upstreamFormState.healthcheck}
+                onChange={(event) =>
+                  setUpstreamFormState((current) => ({
+                    ...current,
+                    healthcheck: event.target.value,
+                  }))
+                }
+                className="min-h-32 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder='{"active": {"healthy": {"interval": 5}}}'
+              />
+            </div>
 
-      {/* Target Dialog */}
+            <div className="space-y-2">
+              <Label htmlFor="upstream-tags">Tags</Label>
+              <Input
+                id="upstream-tags"
+                value={upstreamFormState.tags}
+                onChange={(event) =>
+                  setUpstreamFormState((current) => ({ ...current, tags: event.target.value }))
+                }
+                placeholder="internal, critical"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setUpstreamDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={savingUpstream}>
+                {editingUpstream ? "Save Changes" : "Create Upstream"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={targetDialogOpen} onOpenChange={setTargetDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingTarget?.target ? "Edit" : "Add"} Target</DialogTitle>
+            <DialogTitle>{targetContext?.target ? "Edit target" : "Create target"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleTargetSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="target">Target *</Label>
+          <form className="space-y-4" onSubmit={handleTargetSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="target">Target</Label>
               <Input
                 id="target"
-                value={targetFormData.target}
-                onChange={(e) => setTargetFormData({ ...targetFormData, target: e.target.value })}
-                placeholder="192.168.1.1:8080"
+                value={targetFormState.target}
+                onChange={(event) =>
+                  setTargetFormState((current) => ({ ...current, target: event.target.value }))
+                }
+                placeholder="10.0.0.42:8080"
                 required
               />
-              <p className="text-xs text-muted-foreground mt-1">Format: host:port or just host</p>
             </div>
-            <div>
+
+            <div className="space-y-2">
               <Label htmlFor="weight">Weight</Label>
               <Input
                 id="weight"
                 type="number"
-                value={targetFormData.weight}
-                onChange={(e) =>
-                  setTargetFormData({
-                    ...targetFormData,
-                    weight: e.target.value ? Number(e.target.value) : 100,
-                  })
+                value={targetFormState.weight}
+                onChange={(event) =>
+                  setTargetFormState((current) => ({ ...current, weight: event.target.value }))
                 }
-                placeholder="100"
               />
             </div>
-            <div>
-              <Label htmlFor="targetTags">Tags (comma separated)</Label>
+
+            <div className="space-y-2">
+              <Label htmlFor="target-tags">Tags</Label>
               <Input
-                id="targetTags"
-                value={targetFormData.tags || ""}
-                onChange={(e) => setTargetFormData({ ...targetFormData, tags: e.target.value })}
-                placeholder="primary, production"
+                id="target-tags"
+                value={targetFormState.tags}
+                onChange={(event) =>
+                  setTargetFormState((current) => ({ ...current, tags: event.target.value }))
+                }
+                placeholder="zone-a, canary"
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setTargetDialogOpen(false)}>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setTargetDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{editingTarget?.target ? "Update" : "Create"}</Button>
-            </div>
+              <Button type="submit" disabled={savingTarget}>
+                {targetContext?.target ? "Save Changes" : "Create Target"}
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function MetricCard(props: { label: string; value: number; description: string }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-sm">{props.label}</CardTitle>
+          <CardDescription>{props.description}</CardDescription>
+        </div>
+        <Server className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-3xl font-semibold">{props.value}</div>
+      </CardContent>
+    </Card>
   );
 }
