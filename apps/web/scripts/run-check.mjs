@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(packageDir, "../..");
-const vpBin = path.join(repoRoot, "node_modules/.bin/vp");
+const vpCli = path.join(repoRoot, "node_modules/vite-plus/bin/vp");
 const excludedRelativePaths = new Set(["src/routeTree.gen.ts"]);
 
 function collectFiles(currentDir) {
@@ -39,11 +39,10 @@ const filesToCheck = [
   "package.json",
   "tsconfig.json",
   "vite.config.ts",
-  "vitest.config.ts",
   ...collectFiles(path.join(packageDir, "src")),
 ];
 
-const result = spawnSync(vpBin, ["check", ...filesToCheck], {
+const result = spawnSync(process.execPath, [vpCli, "check", ...filesToCheck], {
   cwd: packageDir,
   stdio: "inherit",
 });

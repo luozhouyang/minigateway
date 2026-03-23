@@ -5,10 +5,10 @@ import { fileURLToPath } from "url";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(packageDir, "../..");
-const vpBin = path.join(repoRoot, "node_modules/.bin/vp");
+const vpCli = path.join(repoRoot, "node_modules/vite-plus/bin/vp");
 
 function run(args) {
-  const result = spawnSync(vpBin, args, {
+  const result = spawnSync(process.execPath, [vpCli, ...args], {
     cwd: packageDir,
     stdio: "inherit",
   });

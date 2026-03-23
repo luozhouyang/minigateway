@@ -9,8 +9,7 @@
     "dev": "vp dev --port 3000",
     "build": "vp build",
     "preview": "vp preview",
-    "check": "node ./scripts/run-check.mjs",
-    "test": "vp test --config vitest.config.ts"
+    "check": "node ../../scripts/run-with-managed-node.mjs ./scripts/run-check.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -51,11 +50,5 @@
     "vite": "^7.3.1",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.5"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "lightningcss"
-    ]
   }
 }

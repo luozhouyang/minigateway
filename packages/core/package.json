@@ -33,8 +33,8 @@
     "build": "vp pack src/index.ts && node ./scripts/copy-drizzle.mjs",
     "dev": "vp pack --watch src/index.ts",
     "prepack": "vp run build",
-    "test": "vp test",
-    "check": "node ./scripts/run-check.mjs"
+    "test": "node ../../scripts/run-with-managed-node.mjs ../../node_modules/vite-plus/bin/vp test",
+    "check": "node ../../scripts/run-with-managed-node.mjs ./scripts/run-check.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.11",
@@ -51,6 +51,6 @@
     "@types/node": "^25.5.0",
     "@typescript/native-preview": "7.0.0-dev.20260316.1",
     "typescript": "^5.9.3",
-    "vite-plus": "^0.1.11"
+    "vite-plus": "0.1.13"
   }
 }

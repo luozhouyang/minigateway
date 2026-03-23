@@ -28,8 +28,7 @@
     "bundle": "node ./scripts/build.mjs",
     "dev": "vp pack --watch src/cli/index.ts",
     "prepack": "node ./scripts/build.mjs",
-    "test": "vp test",
-    "check": "node ./scripts/run-check.mjs",
+    "check": "node ../../scripts/run-with-managed-node.mjs ./scripts/run-check.mjs",
     "start": "node dist/index.mjs"
   },
   "dependencies": {
@@ -42,6 +41,6 @@
     "@types/node": "^25.5.0",
     "@typescript/native-preview": "7.0.0-dev.20260316.1",
     "typescript": "^5.9.3",
-    "vite-plus": "^0.1.11"
+    "vite-plus": "0.1.13"
   }
 }
