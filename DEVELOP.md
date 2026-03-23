@@ -111,7 +111,7 @@ vp run bundle
 Optional smoke test for the packaged CLI artifact:
 
 ```bash
-node packages/cli/dist/index.mjs start --port 8099 --db /tmp/token-gateway-dev.db
+node packages/cli/dist/index.mjs start --port 8099 --db /tmp/minigateway-dev.db
 ```
 
 Then verify:

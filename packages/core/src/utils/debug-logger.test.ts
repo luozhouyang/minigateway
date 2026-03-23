@@ -2,15 +2,15 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { createLogger, normalizeLogLevel } from "./debug-logger.js";
 
 describe("debug-logger", () => {
-  const originalLogLevel = process.env.TOKEN_GATEWAY_LOG_LEVEL;
+  const originalLogLevel = process.env.MINIGATEWAY_LOG_LEVEL;
 
   afterEach(() => {
     vi.restoreAllMocks();
 
     if (originalLogLevel === undefined) {
-      delete process.env.TOKEN_GATEWAY_LOG_LEVEL;
+      delete process.env.MINIGATEWAY_LOG_LEVEL;
     } else {
-      process.env.TOKEN_GATEWAY_LOG_LEVEL = originalLogLevel;
+      process.env.MINIGATEWAY_LOG_LEVEL = originalLogLevel;
     }
   });
 

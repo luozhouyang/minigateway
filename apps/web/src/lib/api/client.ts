@@ -1,4 +1,4 @@
-// API client for Token Gateway Admin API.
+// API client for MiniGateway Admin API.
 
 import { DEFAULT_DASHBOARD_SETTINGS, readDashboardSettings } from "@/lib/dashboard-settings";
 

@@ -12,9 +12,9 @@ describe("app-paths", () => {
       expect(typeof configDir).toBe("string");
     });
 
-    it("should include token-gateway in the path", () => {
+    it("should include minigateway in the path", () => {
       const configDir = getConfigDir();
-      expect(configDir).toContain("token-gateway");
+      expect(configDir).toContain("minigateway");
     });
 
     it("should create directory that exists", () => {
@@ -28,7 +28,7 @@ describe("app-paths", () => {
     it("should return config path in config dir", () => {
       const configPath = getConfigPath();
       expect(configPath).toBeTruthy();
-      expect(configPath).toContain("token-gateway");
+      expect(configPath).toContain("minigateway");
       expect(configPath).toMatch(/\.(yaml|yml)$/);
     });
   });
@@ -37,7 +37,7 @@ describe("app-paths", () => {
     it("should return database path in config dir", () => {
       const dbPath = getDatabasePath();
       expect(dbPath).toBeTruthy();
-      expect(dbPath).toContain("token-gateway");
+      expect(dbPath).toContain("minigateway");
       expect(dbPath).toMatch(/\.db$/);
     });
   });
@@ -46,7 +46,7 @@ describe("app-paths", () => {
     it("should return CLI config path in config dir", () => {
       const cliConfigPath = getCliConfigPath();
       expect(cliConfigPath).toBeTruthy();
-      expect(cliConfigPath).toContain("token-gateway");
+      expect(cliConfigPath).toContain("minigateway");
       expect(cliConfigPath).toMatch(/\.json$/);
     });
   });

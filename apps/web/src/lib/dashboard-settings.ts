@@ -7,8 +7,8 @@ export interface DashboardSettings {
   dashboardAutoRefreshSeconds: number;
 }
 
-const STORAGE_KEY = "token-gateway.dashboard-settings";
-const CHANGE_EVENT = "token-gateway:dashboard-settings";
+const STORAGE_KEY = "minigateway.dashboard-settings";
+const CHANGE_EVENT = "minigateway:dashboard-settings";
 
 export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL || "/admin",

@@ -19,7 +19,7 @@ export default function Sidebar() {
       <div className="flex h-16 items-center border-b border-[var(--chip-line)] px-6">
         <Link to="/" className="flex items-center gap-2">
           <div className="h-3 w-3 rounded-full bg-[linear-gradient(90deg,#56c6be,#7ed3bf)]" />
-          <span className="text-base font-bold text-[var(--sea-ink)]">Token Gateway</span>
+          <span className="text-base font-bold text-[var(--sea-ink)]">MiniGateway</span>
         </Link>
       </div>
 

@@ -5,7 +5,7 @@ import { promises as fs } from "fs";
 import { join } from "path";
 import { getConfigPath, getDatabasePath } from "@minigateway/core";
 
-const defaultConfig = `# Token Gateway Configuration
+const defaultConfig = `# MiniGateway Configuration
 # This file controls how the proxy engine routes and processes requests
 
 # Server configuration
@@ -16,7 +16,7 @@ server:
 # Database configuration
 database:
   # SQLite database file path
-  # Default: uses user config directory (~/.config/token-gateway/token-gateway.db on Linux)
+  # Default: uses user config directory (~/.config/minigateway/minigateway.db on Linux)
   path: "${getDatabasePath()}"
 
 # Admin API configuration

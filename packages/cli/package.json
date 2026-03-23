@@ -2,15 +2,15 @@
   "name": "@minigateway/cli",
   "version": "0.0.0",
   "description": "API Proxy Engine CLI - A programmable API gateway based on Hono",
-  "homepage": "https://github.com/luozhouyang/token-gateway/tree/main/packages/cli#readme",
+  "homepage": "https://github.com/luozhouyang/minigateway/tree/main/packages/cli#readme",
   "bugs": {
-    "url": "https://github.com/luozhouyang/token-gateway/issues"
+    "url": "https://github.com/luozhouyang/minigateway/issues"
   },
   "license": "MIT",
   "author": "Luo Zhou Yang",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/luozhouyang/token-gateway.git",
+    "url": "git+https://github.com/luozhouyang/minigateway.git",
     "directory": "packages/cli"
   },
   "bin": {

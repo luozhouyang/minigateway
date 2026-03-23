@@ -151,7 +151,7 @@ export async function startUnifiedServer(options: UnifiedServerOptions): Promise
   // Print banner
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
-║                  Token Gateway                             ║
+║                   MiniGateway                              ║
 ╠════════════════════════════════════════════════════════════╣
 ║  Server: http://localhost:${options.port}                          ║
 ║                                                            ║

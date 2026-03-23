@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PORT="${TOKEN_GATEWAY_E2E_PORT:-18080}"
-UPSTREAM_PORT="${TOKEN_GATEWAY_E2E_UPSTREAM_PORT:-18081}"
-DB_PATH="${TOKEN_GATEWAY_E2E_DB:-/tmp/token-gateway-e2e.db}"
-CLI_LOG="${TOKEN_GATEWAY_E2E_LOG:-/tmp/token-gateway-e2e-server.log}"
-UPSTREAM_LOG="${TOKEN_GATEWAY_E2E_UPSTREAM_LOG:-/tmp/token-gateway-e2e-httpbin.log}"
+PORT="${MINIGATEWAY_E2E_PORT:-18080}"
+UPSTREAM_PORT="${MINIGATEWAY_E2E_UPSTREAM_PORT:-18081}"
+DB_PATH="${MINIGATEWAY_E2E_DB:-/tmp/minigateway-e2e.db}"
+CLI_LOG="${MINIGATEWAY_E2E_LOG:-/tmp/minigateway-e2e-server.log}"
+UPSTREAM_LOG="${MINIGATEWAY_E2E_UPSTREAM_LOG:-/tmp/minigateway-e2e-httpbin.log}"
 
 CLI_PID=""
 UPSTREAM_PID=""
@@ -132,7 +132,7 @@ echo "Starting httpbin fixture on ${UPSTREAM_PORT}..."
 node "${ROOT_DIR}/scripts/e2e-httpbin-fixture.mjs" "${UPSTREAM_PORT}" >"${UPSTREAM_LOG}" 2>&1 &
 UPSTREAM_PID=$!
 
-echo "Starting Token Gateway on ${PORT}..."
+echo "Starting MiniGateway on ${PORT}..."
 node "${ROOT_DIR}/packages/cli/dist/index.mjs" start --port "${PORT}" --db "${DB_PATH}" >"${CLI_LOG}" 2>&1 &
 CLI_PID=$!
 
@@ -140,7 +140,7 @@ wait_for_url "http://127.0.0.1:${PORT}/ui/"
 wait_for_url "http://127.0.0.1:${PORT}/admin/services"
 
 echo "Checking web UI..."
-UI_HTML_FILE="$(mktemp /tmp/token-gateway-e2e-ui.XXXXXX.html)"
+UI_HTML_FILE="$(mktemp /tmp/minigateway-e2e-ui.XXXXXX.html)"
 curl --compressed -fsS "http://127.0.0.1:${PORT}/ui/" -o "${UI_HTML_FILE}"
 if ! grep -qi "<html" "${UI_HTML_FILE}"; then
   echo "Web UI did not return HTML" >&2

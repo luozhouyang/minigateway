@@ -9,7 +9,7 @@ describe("static-server", () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(path.join(tmpdir(), "token-gateway-static-server-"));
+    tempDir = mkdtempSync(path.join(tmpdir(), "minigateway-static-server-"));
     mkdirSync(path.join(tempDir, "assets"), { recursive: true });
     writeFileSync(path.join(tempDir, "index.html"), "<html><body>index</body></html>");
     writeFileSync(path.join(tempDir, "assets", "styles.css"), "body { color: red; }");

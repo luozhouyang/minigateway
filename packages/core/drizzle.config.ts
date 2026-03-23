@@ -5,6 +5,6 @@ export default defineConfig({
   schema: "./src/storage/schema.ts",
   out: "./drizzle",
   dbCredentials: {
-    url: "./token-gateway.db",
+    url: "./minigateway.db",
   },
 });

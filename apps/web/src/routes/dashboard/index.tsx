@@ -194,7 +194,7 @@ function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Monitor your Token Gateway resources from a single control plane.
+            Monitor your MiniGateway resources from a single control plane.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             API base: <span className="font-medium text-foreground">{settings.apiBaseUrl}</span>

@@ -56,7 +56,7 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r">
       <SidebarHeader className="border-b flex items-center justify-center h-14">
-        <span className="text-sm font-semibold">Token Gateway</span>
+        <span className="text-sm font-semibold">MiniGateway</span>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

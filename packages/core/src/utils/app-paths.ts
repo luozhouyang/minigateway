@@ -8,9 +8,9 @@ import { homedir } from "os";
  * Get the user's default config directory path based on the operating system.
  *
  * Platform-specific paths:
- * - Linux: ~/.config/token-gateway
- * - macOS: ~/Library/Application Support/token-gateway
- * - Windows: ~\AppData\Roaming\token-gateway
+ * - Linux: ~/.config/minigateway
+ * - macOS: ~/Library/Application Support/minigateway
+ * - Windows: ~\AppData\Roaming\minigateway
  */
 export function getConfigDir(): string {
   const home = homedir();
@@ -19,14 +19,14 @@ export function getConfigDir(): string {
   let configDir: string;
 
   if (platform === "win32") {
-    // Windows: ~\AppData\Roaming\token-gateway
-    configDir = join(process.env.APPDATA || home, "token-gateway");
+    // Windows: ~\AppData\Roaming\minigateway
+    configDir = join(process.env.APPDATA || home, "minigateway");
   } else if (platform === "darwin") {
-    // macOS: ~/Library/Application Support/token-gateway
-    configDir = join(home, "Library", "Application Support", "token-gateway");
+    // macOS: ~/Library/Application Support/minigateway
+    configDir = join(home, "Library", "Application Support", "minigateway");
   } else {
-    // Linux and others: ~/.config/token-gateway
-    configDir = join(home, ".config", "token-gateway");
+    // Linux and others: ~/.config/minigateway
+    configDir = join(home, ".config", "minigateway");
   }
 
   // Ensure directory exists
@@ -48,7 +48,7 @@ export function getConfigPath(): string {
  * @returns The full path to the database file
  */
 export function getDatabasePath(): string {
-  return join(getConfigDir(), "token-gateway.db");
+  return join(getConfigDir(), "minigateway.db");
 }
 
 /**

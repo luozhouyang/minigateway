@@ -31,7 +31,7 @@ async function resolveUiDistPath(options: {
 
   const candidates = [
     options.uiDist ? path.resolve(options.uiDist) : undefined,
-    process.env.TOKEN_GATEWAY_UI_DIST ? path.resolve(process.env.TOKEN_GATEWAY_UI_DIST) : undefined,
+    process.env.MINIGATEWAY_UI_DIST ? path.resolve(process.env.MINIGATEWAY_UI_DIST) : undefined,
     fileURLToPath(new URL("./web/", import.meta.url)),
     path.resolve(process.cwd(), "apps/web/.output/public"),
     path.resolve(process.cwd(), "apps/web/dist"),
@@ -47,10 +47,7 @@ async function resolveUiDistPath(options: {
   return undefined;
 }
 
-program
-  .name("token-gateway")
-  .description("Token Gateway - LLM API Proxy with Web UI")
-  .version("0.0.1");
+program.name("minigateway").description("MiniGateway - LLM API Proxy with Web UI").version("0.0.1");
 
 program
   .command("start")
@@ -61,7 +58,7 @@ program
   .option(
     "--log-level <level>",
     "Runtime log level (debug, info, warn, error)",
-    process.env.TOKEN_GATEWAY_LOG_LEVEL || "info",
+    process.env.MINIGATEWAY_LOG_LEVEL || "info",
   )
   .option("--no-ui", "Disable Web UI (Admin API only)")
   .action(async (options) => {

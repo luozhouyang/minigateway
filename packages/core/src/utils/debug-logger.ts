@@ -22,7 +22,7 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 export function normalizeLogLevel(level?: string | null): LogLevel {
   const candidate = (level ||
-    process.env.TOKEN_GATEWAY_LOG_LEVEL ||
+    process.env.MINIGATEWAY_LOG_LEVEL ||
     process.env.LOG_LEVEL ||
     "info") as string;
 

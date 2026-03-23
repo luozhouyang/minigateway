@@ -17,7 +17,7 @@ describe("unified-server", () => {
   let upstreamPort: number;
 
   beforeEach(async () => {
-    tempDir = mkdtempSync(path.join(tmpdir(), "token-gateway-unified-server-test-"));
+    tempDir = mkdtempSync(path.join(tmpdir(), "minigateway-unified-server-test-"));
     dbPath = path.join(tempDir, "test.db");
     runMigrations(dbPath);
     db = new DatabaseService(dbPath);
@@ -26,7 +26,7 @@ describe("unified-server", () => {
     mkdirSync(uiDir, { recursive: true });
     writeFileSync(
       path.join(uiDir, "index.html"),
-      "<!doctype html><html><body>Token Gateway E2E</body></html>",
+      "<!doctype html><html><body>MiniGateway E2E</body></html>",
       "utf-8",
     );
 
@@ -93,7 +93,7 @@ describe("unified-server", () => {
 
     expect(uiResponse.status).toBe(200);
     expect(uiResponse.headers.get("content-type")).toContain("text/html");
-    expect(await uiResponse.text()).toContain("Token Gateway E2E");
+    expect(await uiResponse.text()).toContain("MiniGateway E2E");
 
     const serviceResponse = await app.request("/admin/services", {
       method: "POST",
