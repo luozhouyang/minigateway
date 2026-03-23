@@ -1,10 +1,12 @@
 // Plugin system type definitions
 
-import type { Consumer, Route, Service } from "../entities/types.js";
+import type { Consumer, Route, Service, Target } from "../entities/types.js";
+import type { AppLogger } from "../utils/debug-logger.js";
+import type { HttpRequestSnapshot, HttpRequestState, HttpResponseState } from "./runtime.js";
 
 /**
- * Plugin instance - a bound plugin with its configuration
- * Represents a single plugin configuration (one row from the plugins table)
+ * A single persisted plugin binding.
+ * One request can match many bindings, but only the most specific binding for each plugin name is used.
  */
 export interface PluginInstance {
   id: string;
@@ -15,138 +17,111 @@ export interface PluginInstance {
   config: Record<string, unknown>;
   enabled: boolean;
   tags?: string[];
-  priority?: number; // Runtime priority, can be overridden from binding
+  priority?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /**
- * Plugin execution context
- * Contains all information needed for plugin execution during request/response lifecycle
+ * Supported execution phases.
+ * The model intentionally mirrors Kong's high-level access/response/log lifecycle.
+ */
+export type PluginPhase = "access" | "response" | "log";
+
+/**
+ * Per-request execution context exposed to plugins.
  */
 export interface PluginContext {
-  // Request info
-  request: Request;
-  url: URL;
-  method: string;
-  headers: Headers;
-
-  // Routing info
+  phase: PluginPhase;
+  requestId: string;
   route?: Route;
   service?: Service;
   consumer?: Consumer;
-
-  // Plugin instance info
+  target?: Target;
   plugin: PluginInstance;
   config: Record<string, unknown>;
-
-  // State
-  state: Map<string, unknown>;
-
-  // Utilities
-  waitUntil: (promise: Promise<void>) => void;
+  clientRequest: HttpRequestSnapshot;
+  request: HttpRequestState;
+  response?: HttpResponseState;
+  shared: Map<string, unknown>;
+  uriCaptures: Record<string, string>;
+  logger: AppLogger;
+  startedAt: number;
+  upstreamStartedAt?: number;
+  upstreamCompletedAt?: number;
+  waitUntil: (promise: Promise<unknown>) => void;
 }
 
 /**
- * Plugin response object
- * Returned by plugins to modify request/response
+ * Handler result returned by a plugin.
  */
-export interface PluginResponse {
-  /** Stop processing additional plugins */
+export interface PluginHandlerResult {
   stop?: boolean;
-  /** Skip this plugin and continue */
-  skip?: boolean;
-  /** Override response (for response phase) */
   response?: Response;
-  /** Override request (for request phase) */
-  request?: Request;
-  /** Error to throw */
-  error?: Error;
 }
 
-/**
- * Plugin lifecycle phases
- */
-export type PluginPhase = "request" | "response" | "error";
-
-/**
- * Plugin handler function type
- */
 export type PluginHandler = (
   ctx: PluginContext,
-) => Promise<PluginResponse | void> | PluginResponse | void;
+) => Promise<PluginHandlerResult | void> | PluginHandlerResult | void;
 
 /**
- * Plugin definition interface
- * All plugins must implement this interface
+ * Plugin definition loaded by the runtime.
  */
 export interface PluginDefinition {
-  /** Unique plugin name */
   name: string;
-
-  /** Plugin version */
   version: string;
-
-  /** Plugin priority (higher = runs first) */
   priority?: number;
-
-  /** Which phases this plugin supports */
   phases: PluginPhase[];
-
-  /** Default configuration schema */
   configSchema?: Record<string, unknown>;
-
-  /** Request phase handler */
-  onRequest?: PluginHandler;
-
-  /** Response phase handler */
+  onAccess?: PluginHandler;
   onResponse?: PluginHandler;
-
-  /** Error phase handler */
-  onError?: PluginHandler;
+  onLog?: PluginHandler;
 }
 
-/**
- * Built-in plugin types
- */
 export type BuiltinPluginType =
   | "logger"
   | "cors"
   | "rate-limit"
   | "key-auth"
-  | "jwt-auth"
-  | "transform-request"
-  | "transform-response"
-  | "ip-restriction";
+  | "file-log"
+  | "request-transformer"
+  | "response-transformer";
 
-/**
- * Configuration for built-in plugins
- */
 export interface BuiltinPluginConfigs {
   logger: {
     level?: "debug" | "info" | "warn" | "error";
     format?: "json" | "text";
-    fields?: string[];
   };
 
   cors: {
-    origin?: string | string[];
+    origins?: string[];
     methods?: string[];
-    allowedHeaders?: string[];
-    exposedHeaders?: string[];
+    headers?: string[];
+    exposed_headers?: string[];
     credentials?: boolean;
-    maxAge?: number;
+    max_age?: number;
+    private_network?: boolean;
+    preflight_continue?: boolean;
   };
 
   "rate-limit": {
     limit: number;
-    window: number; // in seconds
-    key?: string; // default: ip
+    window: number;
+    key?: "ip" | "header" | "consumer";
     headers?: boolean;
   };
 
   "key-auth": {
-    keyNames?: string[]; // default: ["apikey", "api_key"]
-    headerName?: string; // default: "X-API-Key"
-    queryParamName?: string; // default: "api_key"
-    hideCredentials?: boolean;
+    key_names?: string[];
+    hide_credentials?: boolean;
   };
+
+  "file-log": {
+    path: string;
+    reopen?: boolean;
+    include_body?: boolean;
+  };
+
+  "request-transformer": Record<string, unknown>;
+  "response-transformer": Record<string, unknown>;
 }

@@ -13,6 +13,7 @@ import {
   type LoadBalancingAlgorithm,
 } from "./load-balancer.js";
 import { createLogger, getRequestId, type AppLogger } from "../utils/debug-logger.js";
+import { PluginManager } from "../plugins/plugin-manager.js";
 
 /**
  * Options for creating ProxyEngine
@@ -31,6 +32,7 @@ export interface ProxyEngineOptions {
  * - Health check tracking
  */
 export class ProxyEngine {
+  private db: DatabaseService;
   private serviceRepo: ServiceRepository;
   private routeRepo: RouteRepository;
   private upstreamRepo: UpstreamRepository;
@@ -45,6 +47,7 @@ export class ProxyEngine {
   // Health status: targetId -> healthy boolean
   private healthStatus: Map<string, boolean> = new Map();
   private logger: AppLogger;
+  private pluginManager: PluginManager;
 
   constructor(
     db: DatabaseService,
@@ -52,12 +55,14 @@ export class ProxyEngine {
       logger?: AppLogger;
     },
   ) {
+    this.db = db;
     this.serviceRepo = new ServiceRepository(db);
     this.routeRepo = new RouteRepository(db);
     this.upstreamRepo = new UpstreamRepository(db);
     this.targetRepo = new TargetRepository(db);
     this.routeMatcher = new RouteMatcher();
     this.logger = options?.logger || createLogger({ scope: "proxy-engine" });
+    this.pluginManager = new PluginManager(db);
   }
 
   /**
@@ -216,9 +221,10 @@ export class ProxyEngine {
   async handle(c: Context): Promise<Response | null> {
     const requestId = getRequestId(c.req.raw);
     const requestLogger = this.logger.child("request");
-    const handler = new ProxyRequestHandler((this.serviceRepo as any).db as DatabaseService, {
+    const handler = new ProxyRequestHandler(this.db, {
       logger: requestLogger,
       requestId,
+      pluginManager: this.pluginManager,
     });
     const response = await handler.handleRequest(c.req.raw);
 

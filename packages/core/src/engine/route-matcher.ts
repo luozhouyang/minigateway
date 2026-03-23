@@ -8,6 +8,7 @@ export interface RouteMatchResult {
   isExact: boolean;
   matchedPath: string;
   pathPattern: string;
+  captures: Record<string, string>;
 }
 
 type PathMatcher = ReturnType<typeof match>;
@@ -132,6 +133,7 @@ export class RouteMatcher {
           isExact: exactResult.path === requestPath,
           matchedPath: exactResult.path,
           pathPattern,
+          captures: normalizeCaptures(exactResult.params),
         };
       }
 
@@ -144,6 +146,7 @@ export class RouteMatcher {
           isExact: false,
           matchedPath,
           pathPattern,
+          captures: {},
         };
       }
     }
@@ -263,4 +266,22 @@ export class RouteMatcher {
   getCacheSize(): number {
     return this.pathMatchers.size;
   }
+}
+
+function normalizeCaptures(
+  params: Record<string, string | string[] | undefined>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(params).flatMap(([key, value]) => {
+      if (typeof value === "string") {
+        return [[key, value]];
+      }
+
+      if (Array.isArray(value)) {
+        return [[key, value.join("/")]];
+      }
+
+      return [];
+    }),
+  );
 }

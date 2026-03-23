@@ -1,118 +1,178 @@
-import type { PluginDefinition, PluginContext, PluginResponse } from "../types.js";
+import type { PluginContext, PluginDefinition, PluginHandlerResult } from "../types.js";
+import { appendVaryHeader } from "../runtime.js";
 
-/**
- * CORS Plugin - Handles Cross-Origin Resource Sharing headers
- */
+interface CorsConfig {
+  origins?: string[];
+  origin?: string | string[];
+  methods?: string[];
+  headers?: string[];
+  allowedHeaders?: string[];
+  exposed_headers?: string[];
+  exposedHeaders?: string[];
+  credentials?: boolean;
+  max_age?: number;
+  maxAge?: number;
+  private_network?: boolean;
+  preflight_continue?: boolean;
+}
+
 export const CorsPlugin: PluginDefinition = {
   name: "cors",
-  version: "1.0.0",
-  priority: 100,
-  phases: ["request", "response"],
+  version: "2.0.0",
+  priority: 2000,
+  phases: ["access", "response"],
 
-  configSchema: {
-    origin: { type: "string", default: "*" },
-    methods: { type: "array", default: ["GET", "POST", "PUT", "DELETE", "OPTIONS"] },
-    allowedHeaders: { type: "array", default: [] },
-    exposedHeaders: { type: "array", default: [] },
-    credentials: { type: "boolean", default: false },
-    maxAge: { type: "number", default: 86400 },
-  },
-
-  onRequest: (ctx: PluginContext): PluginResponse | void => {
-    const config = ctx.config as {
-      origin?: string | string[];
-      methods?: string[];
-      allowedHeaders?: string[];
-      exposedHeaders?: string[];
-      credentials?: boolean;
-      maxAge?: number;
-    };
-
-    // Handle preflight OPTIONS request
-    if (ctx.method === "OPTIONS") {
-      const response = new Response(null, {
-        status: 204,
-        headers: buildCorsHeaders(config, ctx.headers.get("origin")),
-      });
-      return { response, stop: true };
+  onAccess: (ctx: PluginContext): PluginHandlerResult | void => {
+    const origin = ctx.clientRequest.headers.get("origin");
+    if (!origin) {
+      return;
     }
+
+    if (!isPreflightRequest(ctx)) {
+      return;
+    }
+
+    const responseHeaders = buildCorsHeaders(ctx, true);
+    if (!responseHeaders.has("access-control-allow-origin")) {
+      return {
+        stop: true,
+        response: new Response(null, { status: 403 }),
+      };
+    }
+
+    if ((ctx.config as CorsConfig).preflight_continue) {
+      return;
+    }
+
+    return {
+      stop: true,
+      response: new Response(null, {
+        status: 204,
+        headers: responseHeaders,
+      }),
+    };
   },
 
-  onResponse: (ctx: PluginContext): PluginResponse | void => {
-    const config = ctx.config as {
-      origin?: string | string[];
-      methods?: string[];
-      allowedHeaders?: string[];
-      exposedHeaders?: string[];
-      credentials?: boolean;
-      maxAge?: number;
-    };
+  onResponse: (ctx: PluginContext): void => {
+    if (!ctx.response) {
+      return;
+    }
 
-    // Add CORS headers to response
-    const origin = ctx.headers.get("origin");
-    const headers = buildCorsHeaders(config, origin);
-
-    // For response phase, we can't directly modify the response
-    // The engine should handle adding headers based on plugin state
-    ctx.state.set("cors-headers", headers);
+    const headers = buildCorsHeaders(ctx, false);
+    headers.forEach((value, key) => {
+      ctx.response?.headers.set(key, value);
+    });
   },
 };
 
-function buildCorsHeaders(
-  config: {
-    origin?: string | string[];
-    methods?: string[];
-    allowedHeaders?: string[];
-    exposedHeaders?: string[];
-    credentials?: boolean;
-    maxAge?: number;
-  },
-  requestOrigin?: string | null,
-): Headers {
+function buildCorsHeaders(ctx: PluginContext, preflight: boolean): Headers {
+  const config = normalizeConfig(ctx.config as CorsConfig);
+  const requestHeaders = ctx.clientRequest.headers;
+  const origin = requestHeaders.get("origin");
   const headers = new Headers();
 
-  // Handle origin
-  if (config.origin) {
-    if (Array.isArray(config.origin)) {
-      if (!requestOrigin || config.origin.includes(requestOrigin)) {
-        headers.set("Access-Control-Allow-Origin", requestOrigin || "*");
-      }
-    } else if (config.origin === "*") {
-      headers.set("Access-Control-Allow-Origin", "*");
-    } else {
-      headers.set("Access-Control-Allow-Origin", config.origin);
-    }
-  } else {
-    headers.set("Access-Control-Allow-Origin", "*");
+  if (!origin) {
+    return headers;
   }
 
-  // Methods
-  if (config.methods) {
-    headers.set("Access-Control-Allow-Methods", config.methods.join(", "));
+  const allowedOrigin = resolveAllowedOrigin(origin, config);
+  if (!allowedOrigin) {
+    return headers;
   }
 
-  // Headers
-  if (config.allowedHeaders) {
-    headers.set("Access-Control-Allow-Headers", config.allowedHeaders.join(", "));
-  }
+  headers.set("access-control-allow-origin", allowedOrigin);
+  appendVaryHeader(headers, "Origin");
 
-  // Exposed headers
-  if (config.exposedHeaders) {
-    headers.set("Access-Control-Expose-Headers", config.exposedHeaders.join(", "));
-  }
-
-  // Credentials
   if (config.credentials) {
-    headers.set("Access-Control-Allow-Credentials", "true");
+    headers.set("access-control-allow-credentials", "true");
   }
 
-  // Max age
-  if (config.maxAge) {
-    headers.set("Access-Control-Max-Age", String(config.maxAge));
+  if (config.exposedHeaders.length > 0 && !preflight) {
+    headers.set("access-control-expose-headers", config.exposedHeaders.join(", "));
   }
 
-  // Vary header
-  headers.set("Vary", "Origin");
+  if (!preflight) {
+    return headers;
+  }
+
+  const requestedMethod =
+    requestHeaders.get("access-control-request-method") || ctx.clientRequest.method;
+  headers.set("access-control-allow-methods", config.methods.join(", "));
+  if (!config.methods.includes(requestedMethod.toUpperCase())) {
+    headers.delete("access-control-allow-origin");
+    return headers;
+  }
+
+  const allowHeaders =
+    config.headers.length > 0
+      ? config.headers.join(", ")
+      : requestHeaders.get("access-control-request-headers") || "";
+  if (allowHeaders) {
+    headers.set("access-control-allow-headers", allowHeaders);
+    appendVaryHeader(headers, "Access-Control-Request-Headers");
+  }
+
+  if (config.maxAge > 0) {
+    headers.set("access-control-max-age", String(config.maxAge));
+  }
+
+  if (
+    config.privateNetwork &&
+    requestHeaders.get("access-control-request-private-network")?.toLowerCase() === "true"
+  ) {
+    headers.set("access-control-allow-private-network", "true");
+  }
 
   return headers;
+}
+
+function resolveAllowedOrigin(
+  origin: string,
+  config: ReturnType<typeof normalizeConfig>,
+): string | null {
+  if (config.origins.includes("*")) {
+    return config.credentials ? origin : "*";
+  }
+
+  return config.origins.includes(origin) ? origin : null;
+}
+
+function isPreflightRequest(ctx: PluginContext): boolean {
+  return (
+    ctx.clientRequest.method === "OPTIONS" &&
+    ctx.clientRequest.headers.has("access-control-request-method")
+  );
+}
+
+function normalizeConfig(config: CorsConfig) {
+  const configuredOrigins = config.origins ?? normalizeStringArray(config.origin) ?? ["*"];
+  return {
+    origins: configuredOrigins,
+    methods: normalizeStringArray(config.methods) ?? [
+      "GET",
+      "HEAD",
+      "PUT",
+      "PATCH",
+      "POST",
+      "DELETE",
+      "OPTIONS",
+    ],
+    headers:
+      normalizeStringArray(config.headers) ?? normalizeStringArray(config.allowedHeaders) ?? [],
+    exposedHeaders:
+      normalizeStringArray(config.exposed_headers) ??
+      normalizeStringArray(config.exposedHeaders) ??
+      [],
+    credentials: config.credentials === true,
+    maxAge: config.max_age ?? config.maxAge ?? 0,
+    privateNetwork: config.private_network === true,
+  };
+}
+
+function normalizeStringArray(value?: string | string[] | null): string[] | null {
+  if (!value) {
+    return null;
+  }
+
+  return Array.isArray(value) ? value.map((item) => item.trim()) : [value.trim()];
 }

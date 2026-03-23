@@ -3,10 +3,10 @@ import { CorsPlugin } from "./builtins/cors.js";
 import { LoggerPlugin } from "./builtins/logger.js";
 import { RateLimitPlugin } from "./builtins/rate-limit.js";
 import { KeyAuthPlugin } from "./builtins/key-auth.js";
+import { FileLogPlugin } from "./builtins/file-log.js";
+import { RequestTransformerPlugin } from "./builtins/request-transformer.js";
+import { ResponseTransformerPlugin } from "./builtins/response-transformer.js";
 
-/**
- * PluginLoader -负责加载内置和自定义插件
- */
 export class PluginLoader {
   private builtinPlugins: Map<BuiltinPluginType, PluginDefinition> = new Map();
 
@@ -22,6 +22,9 @@ export class PluginLoader {
     this.registerBuiltin(LoggerPlugin);
     this.registerBuiltin(RateLimitPlugin);
     this.registerBuiltin(KeyAuthPlugin);
+    this.registerBuiltin(FileLogPlugin);
+    this.registerBuiltin(RequestTransformerPlugin);
+    this.registerBuiltin(ResponseTransformerPlugin);
   }
 
   /**
@@ -97,7 +100,7 @@ export class PluginLoader {
     if (!Array.isArray(p.phases)) return false;
 
     // Validate phases
-    const validPhases = ["request", "response", "error"];
+    const validPhases = ["access", "response", "log"];
     for (const phase of p.phases) {
       if (!validPhases.includes(phase as string)) {
         return false;
@@ -105,9 +108,9 @@ export class PluginLoader {
     }
 
     // Validate handlers if present
-    if (p.onRequest && typeof p.onRequest !== "function") return false;
+    if (p.onAccess && typeof p.onAccess !== "function") return false;
     if (p.onResponse && typeof p.onResponse !== "function") return false;
-    if (p.onError && typeof p.onError !== "function") return false;
+    if (p.onLog && typeof p.onLog !== "function") return false;
 
     return true;
   }

@@ -1,111 +1,112 @@
-import type { PluginDefinition, PluginContext, PluginResponse } from "../types.js";
+import type { PluginContext, PluginDefinition, PluginHandlerResult } from "../types.js";
 
-/**
- * Rate Limit Plugin - Limits request rate per client
- */
+interface RateLimitConfig {
+  limit: number;
+  window: number;
+  key?: "ip" | "header" | "consumer";
+  headers?: boolean;
+}
+
 export const RateLimitPlugin: PluginDefinition = {
   name: "rate-limit",
-  version: "1.0.0",
-  priority: 80,
-  phases: ["request"],
+  version: "2.0.0",
+  priority: 910,
+  phases: ["access", "response"],
 
-  configSchema: {
-    limit: { type: "number", default: 100 },
-    window: { type: "number", default: 60 },
-    key: { type: "string", default: "ip" },
-    headers: { type: "boolean", default: true },
-  },
-
-  onRequest: (ctx: PluginContext): PluginResponse | void => {
-    const config = ctx.config as {
-      limit: number;
-      window: number;
-      key?: string;
-      headers?: boolean;
-    };
-
-    // Get client identifier
-    const clientId = getClientId(ctx, config.key || "ip");
-
-    // Get or create rate limit store
-    const store = getRateLimitStore();
+  onAccess: (ctx: PluginContext): PluginHandlerResult | void => {
+    const config = normalizeConfig(ctx.config as Partial<RateLimitConfig>);
+    const clientId = getClientId(ctx, config.key);
     const now = Date.now();
     const windowMs = config.window * 1000;
+    const store = getRateLimitStore();
 
-    // Get current count
-    const record = store.get(clientId);
-    let count = 0;
+    const current = store.get(clientId);
+    const inWindow = current && now - current.timestamp < windowMs;
+    const count = (inWindow ? current.count : 0) + 1;
+    const resetAt = (inWindow ? current.timestamp : now) + windowMs;
 
-    if (record) {
-      // Reset if window has passed
-      if (now - record.timestamp >= windowMs) {
-        store.set(clientId, { count: 0, timestamp: now });
-      } else {
-        count = record.count;
-      }
+    store.set(clientId, {
+      count,
+      timestamp: inWindow ? current.timestamp : now,
+    });
+
+    const headers = buildRateLimitHeaders(config.limit, count, resetAt);
+    ctx.shared.set("rate-limit-headers", headers);
+
+    if (count <= config.limit) {
+      return;
     }
 
-    // Increment count
-    count++;
-    store.set(clientId, { count, timestamp: now });
-
-    // Add rate limit headers
-    if (config.headers !== false) {
-      const headers = ctx.state.get("response-headers") as Headers | undefined;
-      if (headers) {
-        headers.set("X-RateLimit-Limit", String(config.limit));
-        headers.set("X-RateLimit-Remaining", String(Math.max(0, config.limit - count)));
-        headers.set("X-RateLimit-Reset", String(now + windowMs));
-      } else {
-        ctx.state.set(
-          "response-headers",
-          new Headers({
-            "X-RateLimit-Limit": String(config.limit),
-            "X-RateLimit-Remaining": String(Math.max(0, config.limit - count)),
-            "X-RateLimit-Reset": String(now + windowMs),
-          }),
-        );
-      }
-    }
-
-    // Check if limit exceeded
-    if (count > config.limit) {
-      return {
-        response: new Response(
-          JSON.stringify({
-            error: "Too Many Requests",
-            message: `Rate limit exceeded. Limit: ${config.limit} requests per ${config.window} seconds.`,
-            retryAfter: Math.ceil((now + windowMs - Date.now()) / 1000),
-          }),
-          {
-            status: 429,
-            headers: {
-              "Content-Type": "application/json",
-              "Retry-After": String(Math.ceil((now + windowMs - Date.now()) / 1000)),
-            },
+    return {
+      stop: true,
+      response: new Response(
+        JSON.stringify({
+          error: "Too Many Requests",
+          message: `Rate limit exceeded. Limit: ${config.limit} requests per ${config.window} seconds.`,
+          retry_after: Math.ceil((resetAt - now) / 1000),
+        }),
+        {
+          status: 429,
+          headers: {
+            ...Object.fromEntries(headers.entries()),
+            "content-type": "application/json",
+            "retry-after": String(Math.ceil((resetAt - now) / 1000)),
           },
-        ),
-        stop: true,
-      };
+        },
+      ),
+    };
+  },
+
+  onResponse: (ctx: PluginContext): void => {
+    if (!ctx.response) {
+      return;
     }
+
+    const config = normalizeConfig(ctx.config as Partial<RateLimitConfig>);
+    if (!config.headers) {
+      return;
+    }
+
+    const headers = ctx.shared.get("rate-limit-headers") as Headers | undefined;
+    if (!headers) {
+      return;
+    }
+
+    headers.forEach((value, key) => {
+      ctx.response?.headers.set(key, value);
+    });
   },
 };
 
-function getClientId(ctx: PluginContext, key: string): string {
+function normalizeConfig(config: Partial<RateLimitConfig>): RateLimitConfig {
+  return {
+    limit: config.limit ?? 100,
+    window: config.window ?? 60,
+    key: config.key ?? "ip",
+    headers: config.headers !== false,
+  };
+}
+
+function buildRateLimitHeaders(limit: number, count: number, resetAt: number): Headers {
+  return new Headers({
+    "x-ratelimit-limit": String(limit),
+    "x-ratelimit-remaining": String(Math.max(0, limit - count)),
+    "x-ratelimit-reset": String(Math.ceil(resetAt / 1000)),
+  });
+}
+
+function getClientId(ctx: PluginContext, key: RateLimitConfig["key"]): string {
   switch (key) {
-    case "ip":
-      return ctx.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
     case "header":
-      return ctx.headers.get("x-api-key") || "unknown";
+      return ctx.clientRequest.headers.get("x-api-key") || "unknown";
     case "consumer":
       return ctx.consumer?.id || "anonymous";
+    case "ip":
     default:
-      return "unknown";
+      return ctx.clientRequest.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   }
 }
 
-// In-memory rate limit store
-// In production, use Redis or similar for distributed rate limiting
 const rateLimitStore = new Map<string, { count: number; timestamp: number }>();
 
 function getRateLimitStore(): Map<string, { count: number; timestamp: number }> {

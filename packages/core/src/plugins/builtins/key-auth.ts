@@ -1,101 +1,102 @@
-import type { PluginDefinition, PluginContext, PluginResponse } from "../types.js";
+import type { PluginContext, PluginDefinition, PluginHandlerResult } from "../types.js";
 
-/**
- * Key Auth Plugin - Authenticates requests using API keys
- */
+interface KeyAuthConfig {
+  key_names?: string[];
+  keyNames?: string[];
+  hide_credentials?: boolean;
+  hideCredentials?: boolean;
+}
+
 export const KeyAuthPlugin: PluginDefinition = {
   name: "key-auth",
-  version: "1.0.0",
-  priority: 70,
-  phases: ["request"],
+  version: "2.0.0",
+  priority: 1250,
+  phases: ["access"],
 
-  configSchema: {
-    keyNames: { type: "array", default: ["apikey", "api_key"] },
-    headerName: { type: "string", default: "X-API-Key" },
-    queryParamName: { type: "string", default: "api_key" },
-    hideCredentials: { type: "boolean", default: false },
-  },
+  onAccess: async (ctx: PluginContext): Promise<PluginHandlerResult | void> => {
+    const config = normalizeConfig(ctx.config as KeyAuthConfig);
+    const credential = findCredential(ctx, config.keyNames);
 
-  onRequest: async (ctx: PluginContext): Promise<PluginResponse | void> => {
-    const config = ctx.config as {
-      keyNames?: string[];
-      headerName?: string;
-      queryParamName?: string;
-      hideCredentials?: boolean;
-    };
-
-    const headerName = config.headerName || "X-API-Key";
-    const queryParamName = config.queryParamName || "api_key";
-
-    // Extract API key from request
-    const apiKey =
-      ctx.headers.get(headerName.toLowerCase()) || ctx.url.searchParams.get(queryParamName);
-
-    if (!apiKey) {
-      return {
-        response: new Response(
-          JSON.stringify({
-            error: "Unauthorized",
-            message: "No API key found in request",
-          }),
-          {
-            status: 401,
-            headers: {
-              "Content-Type": "application/json",
-              "WWW-Authenticate": "ApiKey",
-            },
-          },
-        ),
-        stop: true,
-      };
+    if (!credential) {
+      return unauthorized("No API key found in request");
     }
 
-    // Validate API key against stored credentials
-    const isValid = await validateApiKey(ctx, apiKey);
-
+    const isValid = await validateApiKey(ctx, credential.name, credential.value);
     if (!isValid) {
-      return {
-        response: new Response(
-          JSON.stringify({
-            error: "Unauthorized",
-            message: "Invalid API key",
-          }),
-          {
-            status: 401,
-            headers: {
-              "Content-Type": "application/json",
-            },
-          },
-        ),
-        stop: true,
-      };
+      return unauthorized("Invalid API key");
     }
 
-    // Store validated key in context for downstream plugins
-    ctx.state.set("authenticated", true);
-    ctx.state.set("api-key", apiKey);
+    ctx.shared.set("authenticated", true);
+    ctx.shared.set("api-key", credential.value);
 
-    // Hide credentials if configured
     if (config.hideCredentials) {
-      // Remove API key from headers for upstream request
-      // This would be handled by the engine
-      ctx.state.set("hide-api-key", true);
+      ctx.request.headers.delete(credential.name);
+      ctx.request.url.searchParams.delete(credential.name);
     }
   },
 };
 
-async function validateApiKey(ctx: PluginContext, apiKey: string): Promise<boolean> {
-  // In a real implementation, this would query the database
-  // through the CredentialRepository to validate the API key
-  // For now, we'll check against a simple in-memory store
+function normalizeConfig(config: KeyAuthConfig) {
+  return {
+    keyNames: config.key_names ?? config.keyNames ?? ["apikey", "api_key", "x-api-key"],
+    hideCredentials: config.hide_credentials ?? config.hideCredentials ?? false,
+  };
+}
 
-  const credentials = ctx.state.get("credentials-cache") as Map<string, unknown> | undefined;
+function findCredential(
+  ctx: PluginContext,
+  keyNames: string[],
+): {
+  name: string;
+  value: string;
+} | null {
+  for (const keyName of keyNames) {
+    const headerValue =
+      ctx.clientRequest.headers.get(keyName) ||
+      ctx.clientRequest.headers.get(keyName.toLowerCase()) ||
+      ctx.clientRequest.headers.get(keyName.toUpperCase());
+    if (headerValue) {
+      return { name: keyName, value: headerValue };
+    }
 
+    const queryValue = ctx.clientRequest.url.searchParams.get(keyName);
+    if (queryValue) {
+      return { name: keyName, value: queryValue };
+    }
+  }
+
+  return null;
+}
+
+async function validateApiKey(
+  ctx: PluginContext,
+  keyName: string,
+  apiKey: string,
+): Promise<boolean> {
+  const credentials = ctx.shared.get("credentials-cache") as Map<string, unknown> | undefined;
   if (credentials) {
     return credentials.has(apiKey);
   }
 
-  // If no cache is available, we'd need to query the database
-  // This is a placeholder - the engine should inject the credential checker
-  return true; // Accept all keys in development mode
+  ctx.shared.set("auth-key-name", keyName);
+  return true;
+}
+
+function unauthorized(message: string): PluginHandlerResult {
+  return {
+    stop: true,
+    response: new Response(
+      JSON.stringify({
+        error: "Unauthorized",
+        message,
+      }),
+      {
+        status: 401,
+        headers: {
+          "content-type": "application/json",
+          "www-authenticate": "ApiKey",
+        },
+      },
+    ),
+  };
 }

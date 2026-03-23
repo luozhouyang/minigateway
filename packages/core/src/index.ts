@@ -21,13 +21,8 @@ export type * from "./entities/types.js";
 // Plugins
 export { PluginManager } from "./plugins/plugin-manager.js";
 export { PluginLoader } from "./plugins/plugin-loader.js";
-export {
-  createPluginMiddleware,
-  type PluginMiddlewareOptions,
-  PLUGIN_STATE_KEYS,
-  PluginStateHelper,
-} from "./plugins/plugin-middleware.js";
 export * from "./plugins/types.js";
+export * from "./plugins/runtime.js";
 
 // Engine
 export { ProxyEngine, type ProxyEngineOptions } from "./engine/proxy-engine.js";
