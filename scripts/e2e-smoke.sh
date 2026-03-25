@@ -120,12 +120,11 @@ assert_proxy_response() {
 
 require_command curl
 require_command node
-require_command vp
 
 echo "Building packaged CLI bundle..."
 (
-  cd "${ROOT_DIR}/packages/cli"
-  vp run bundle >/dev/null
+  cd "${ROOT_DIR}"
+  node ./scripts/run-local-vp.mjs run @minigateway/cli#bundle >/dev/null
 )
 
 echo "Starting httpbin fixture on ${UPSTREAM_PORT}..."

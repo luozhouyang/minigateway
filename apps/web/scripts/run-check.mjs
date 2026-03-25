@@ -1,11 +1,9 @@
 import { readdirSync, statSync } from "fs";
 import path from "path";
-import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
+import { runLocalVp } from "../../../scripts/vp-runtime.mjs";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const repoRoot = path.resolve(packageDir, "../..");
-const vpCli = path.join(repoRoot, "node_modules/vite-plus/bin/vp");
 const excludedRelativePaths = new Set(["src/routeTree.gen.ts"]);
 
 function collectFiles(currentDir) {
@@ -41,16 +39,4 @@ const filesToCheck = [
   "vite.config.ts",
   ...collectFiles(path.join(packageDir, "src")),
 ];
-
-const result = spawnSync(process.execPath, [vpCli, "check", ...filesToCheck], {
-  cwd: packageDir,
-  stdio: "inherit",
-});
-
-if (result.error) {
-  throw result.error;
-}
-
-if (result.status !== 0) {
-  process.exit(result.status ?? 1);
-}
+runLocalVp(["check", ...filesToCheck], { cwd: packageDir });

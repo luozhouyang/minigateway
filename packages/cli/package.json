@@ -14,6 +14,7 @@
     "directory": "packages/cli"
   },
   "bin": {
+    "minigateway": "./dist/index.mjs",
     "proxy-engine": "./dist/index.mjs"
   },
   "files": [
@@ -23,12 +24,16 @@
   "publishConfig": {
     "access": "public"
   },
+  "engines": {
+    "node": "24.14.0"
+  },
   "scripts": {
-    "build": "vp pack src/cli/index.ts",
+    "build": "node ../../scripts/run-local-vp.mjs pack src/cli/index.ts",
     "bundle": "node ./scripts/build.mjs",
-    "dev": "vp pack --watch src/cli/index.ts",
+    "dev": "node ../../scripts/run-local-vp.mjs pack --watch src/cli/index.ts",
     "prepack": "node ./scripts/build.mjs",
-    "check": "node ../../scripts/run-with-managed-node.mjs ./scripts/run-check.mjs",
+    "test": "node ../../scripts/run-local-vp.mjs test",
+    "check": "node ./scripts/run-check.mjs",
     "start": "node dist/index.mjs"
   },
   "dependencies": {
