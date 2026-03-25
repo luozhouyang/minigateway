@@ -8,6 +8,8 @@ import type {
   Consumer,
   Plugin as PluginBinding,
   Credential,
+  LlmProvider,
+  LlmModel,
 } from "../storage/schema.js";
 import type { PluginInstance } from "../plugins/types.js";
 import type {
@@ -20,6 +22,8 @@ import type {
   ConsumerResponse,
   PluginResponse,
   CredentialResponse,
+  LlmProviderResponse,
+  LlmModelResponse,
   PaginationResult,
   ErrorCode,
   ValidationError,
@@ -129,6 +133,39 @@ export function toCredentialResponse(credential: Credential): CredentialResponse
     tags: credential.tags as string[],
     createdAt: credential.createdAt!,
   };
+}
+
+export function toLlmProviderResponse(provider: LlmProvider): LlmProviderResponse {
+  return {
+    id: provider.id,
+    name: provider.name,
+    displayName: provider.displayName ?? provider.name,
+    vendor: provider.vendor,
+    enabled: provider.enabled ?? true,
+    protocol: provider.protocol ?? "passthrough",
+    baseUrl: provider.baseUrl,
+    clients: (provider.clients as string[] | null) ?? null,
+    headers: (provider.headers as Record<string, string> | null) ?? {},
+    auth: (provider.auth as Record<string, unknown> | null) ?? { type: "none" },
+    adapterConfig: (provider.adapterConfig as Record<string, unknown> | null) ?? {},
+    tags: provider.tags as string[],
+    createdAt: provider.createdAt!,
+    updatedAt: provider.updatedAt!,
+  } as LlmProviderResponse;
+}
+
+export function toLlmModelResponse(model: LlmModel): LlmModelResponse {
+  return {
+    id: model.id,
+    providerId: model.providerId,
+    name: model.name,
+    upstreamModel: model.upstreamModel,
+    enabled: model.enabled ?? true,
+    metadata: (model.metadata as Record<string, unknown> | null) ?? {},
+    tags: model.tags as string[],
+    createdAt: model.createdAt!,
+    updatedAt: model.updatedAt!,
+  } as LlmModelResponse;
 }
 
 // Response builders

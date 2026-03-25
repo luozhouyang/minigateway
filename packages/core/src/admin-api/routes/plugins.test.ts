@@ -90,6 +90,57 @@ describe("Plugins Routes", () => {
       expect(json.error).toBeDefined();
       expect(json.error.code).toBe("VALIDATION_ERROR");
     });
+
+    test("creates an llm-router plugin with default config", async () => {
+      const response = await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "llm-router",
+          config: {},
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const json = await response.json();
+      expect(json.data.name).toBe("llm-router");
+      expect(json.data.config).toEqual({
+        clientProfile: "auto",
+        requestTimeoutMs: 120000,
+        maxRetries: 2,
+        retryOnStatus: [429, 500, 502, 503, 504],
+        clientRules: [],
+        circuitBreaker: {
+          failureThreshold: 4,
+          successThreshold: 2,
+          openTimeoutMs: 60000,
+          minimumRequests: 10,
+          errorRateThreshold: 0.6,
+        },
+        logging: {
+          enabled: true,
+          storeBodies: false,
+        },
+      });
+    });
+
+    test("returns 400 when llm-router config is invalid", async () => {
+      const response = await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "llm-router",
+          config: {
+            maxRetries: -1,
+          },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      const json = await response.json();
+      expect(json.error).toBeDefined();
+      expect(json.error.code).toBe("BAD_REQUEST");
+    });
   });
 
   describe("GET /admin/plugins", () => {
@@ -185,6 +236,43 @@ describe("Plugins Routes", () => {
       const json = await response.json();
       expect(json.data).toHaveLength(1);
       expect(json.data[0].name).toBe("request-transformer");
+    });
+
+    test("filters by disabled status", async () => {
+      await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "request-transformer",
+          config: {
+            add: {
+              headers: ["x-enabled:true"],
+            },
+          },
+          enabled: true,
+        }),
+      });
+
+      await ctx.app.request("/admin/plugins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "response-transformer",
+          config: {
+            add: {
+              headers: ["x-disabled:true"],
+            },
+          },
+          enabled: false,
+        }),
+      });
+
+      const response = await ctx.app.request("/admin/plugins?enabled=false");
+
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.data).toHaveLength(1);
+      expect(json.data[0].name).toBe("response-transformer");
     });
   });
 

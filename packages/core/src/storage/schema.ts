@@ -1,6 +1,11 @@
-import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
+import type {
+  LlmProviderAuthConfig,
+  LlmProviderResourceConfig,
+} from "../plugins/llm/config.js";
+import type { LlmClientProfile, LlmProviderProtocol, LlmProviderVendor } from "../plugins/llm/types.js";
 
 // Utility function: generate random ID
 export function randomId(): string {
@@ -17,6 +22,8 @@ export type Target = InferSelectModel<typeof targets>;
 export type Consumer = InferSelectModel<typeof consumers>;
 export type Plugin = InferSelectModel<typeof plugins>;
 export type Credential = InferSelectModel<typeof credentials>;
+export type LlmProvider = InferSelectModel<typeof llmProviders>;
+export type LlmModel = InferSelectModel<typeof llmModels>;
 export type PluginBundle = InferSelectModel<typeof pluginBundles>;
 export type AppliedPluginMigration = InferSelectModel<typeof pluginMigrations>;
 
@@ -44,6 +51,21 @@ export type CreatePluginBindingInput = Partial<Omit<Plugin, "id" | "createdAt" |
   tags?: string[] | null;
 };
 export type CreateCredentialInput = Partial<Omit<Credential, "id" | "createdAt">> & {
+  tags?: string[] | null;
+};
+export type CreateLlmProviderInput = Partial<
+  Omit<LlmProvider, "id" | "createdAt" | "updatedAt">
+> & {
+  name: string;
+  vendor: LlmProviderVendor;
+  protocol: LlmProviderProtocol;
+  baseUrl: string;
+  tags?: string[] | null;
+};
+export type CreateLlmModelInput = Partial<Omit<LlmModel, "id" | "createdAt" | "updatedAt">> & {
+  providerId: string;
+  name: string;
+  upstreamModel: string;
   tags?: string[] | null;
 };
 
@@ -182,6 +204,68 @@ export const credentials = sqliteTable(
   },
   (table) => ({
     idx_credentials_consumer_id: index("idx_credentials_consumer_id").on(table.consumerId),
+  }),
+);
+
+export const llmProviders = sqliteTable(
+  "llm_providers",
+  {
+    id: text("id").primaryKey().$defaultFn(randomId),
+    name: text("name").unique().notNull(),
+    displayName: text("display_name"),
+    vendor: text("vendor").$type<LlmProviderVendor>().notNull().default("custom"),
+    enabled: integer("enabled", { mode: "boolean" }).default(true),
+    protocol: text("protocol").$type<LlmProviderProtocol>().notNull().default("passthrough"),
+    baseUrl: text("base_url").notNull(),
+    clients: text("clients", { mode: "json" }).$type<LlmClientProfile[]>(),
+    headers: text("headers", { mode: "json" })
+      .$type<Record<string, string>>()
+      .$defaultFn(() => ({})),
+    auth: text("auth", { mode: "json" })
+      .$type<LlmProviderAuthConfig>()
+      .$defaultFn(() => ({ type: "none" })),
+    adapterConfig: text("adapter_config", { mode: "json" })
+      .$type<LlmProviderResourceConfig["adapterConfig"]>()
+      .$defaultFn(() => ({})),
+    tags: text("tags", { mode: "json" })
+      .$type<string[]>()
+      .$defaultFn(() => []),
+    createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idxLlmProvidersVendor: index("idx_llm_providers_vendor").on(table.vendor),
+    idxLlmProvidersProtocol: index("idx_llm_providers_protocol").on(table.protocol),
+    idxLlmProvidersEnabled: index("idx_llm_providers_enabled").on(table.enabled),
+  }),
+);
+
+export const llmModels = sqliteTable(
+  "llm_models",
+  {
+    id: text("id").primaryKey().$defaultFn(randomId),
+    providerId: text("provider_id")
+      .notNull()
+      .references(() => llmProviders.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    upstreamModel: text("upstream_model").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).default(true),
+    metadata: text("metadata", { mode: "json" })
+      .$type<Record<string, unknown>>()
+      .$defaultFn(() => ({})),
+    tags: text("tags", { mode: "json" })
+      .$type<string[]>()
+      .$defaultFn(() => []),
+    createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idxLlmModelsProviderId: index("idx_llm_models_provider_id").on(table.providerId),
+    idxLlmModelsEnabled: index("idx_llm_models_enabled").on(table.enabled),
+    uqLlmModelsProviderName: uniqueIndex("uq_llm_models_provider_name").on(
+      table.providerId,
+      table.name,
+    ),
   }),
 );
 

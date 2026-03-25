@@ -4,6 +4,9 @@ import { LoggerPlugin } from "./builtins/logger.js";
 import { RateLimitPlugin } from "./builtins/rate-limit.js";
 import { KeyAuthPlugin } from "./builtins/key-auth.js";
 import { FileLogPlugin } from "./builtins/file-log.js";
+import { LlmInboundAnthropicPlugin } from "./builtins/llm-inbound-anthropic.js";
+import { LlmInboundOpenAIPlugin } from "./builtins/llm-inbound-openai.js";
+import { LlmRouterPlugin } from "./builtins/llm-router.js";
 import { RequestTransformerPlugin } from "./builtins/request-transformer.js";
 import { ResponseTransformerPlugin } from "./builtins/response-transformer.js";
 
@@ -23,6 +26,9 @@ export class PluginLoader {
     this.registerBuiltin(RateLimitPlugin);
     this.registerBuiltin(KeyAuthPlugin);
     this.registerBuiltin(FileLogPlugin);
+    this.registerBuiltin(LlmInboundOpenAIPlugin);
+    this.registerBuiltin(LlmInboundAnthropicPlugin);
+    this.registerBuiltin(LlmRouterPlugin);
     this.registerBuiltin(RequestTransformerPlugin);
     this.registerBuiltin(ResponseTransformerPlugin);
   }

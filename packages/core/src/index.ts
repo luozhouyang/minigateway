@@ -14,6 +14,8 @@ export { TargetRepository } from "./entities/target.js";
 export { ConsumerRepository } from "./entities/consumer.js";
 export { PluginBindingRepository } from "./entities/plugin-binding.js";
 export { CredentialRepository } from "./entities/credential.js";
+export { LlmProviderRepository } from "./entities/llm-provider.js";
+export { LlmModelRepository } from "./entities/llm-model.js";
 
 // Types
 export type * from "./entities/types.js";
@@ -68,6 +70,8 @@ export {
   createTargetSchema,
   createConsumerSchema,
   createCredentialSchema,
+  createLlmProviderSchema,
+  createLlmModelSchema,
   createPluginSchema,
   updateServiceSchema,
   updateRouteSchema,
@@ -75,12 +79,16 @@ export {
   updateTargetSchema,
   updateConsumerSchema,
   updateCredentialSchema,
+  updateLlmProviderSchema,
+  updateLlmModelSchema,
   updatePluginSchema,
   paginationSchema,
   serviceFilterSchema,
   routeFilterSchema,
   upstreamFilterSchema,
   consumerFilterSchema,
+  llmProviderFilterSchema,
+  llmModelFilterSchema,
   pluginFilterSchema,
 } from "./admin-api/schemas.js";
 
@@ -93,6 +101,8 @@ export type {
   ConsumerResponse,
   PluginResponse,
   CredentialResponse,
+  LlmProviderResponse,
+  LlmModelResponse,
   ApiSuccessResponse,
   ApiErrorResponse,
   ApiResponseMeta,

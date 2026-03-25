@@ -404,11 +404,18 @@ export class PluginManager {
     config: Record<string, unknown>,
     pluginDef: PluginDefinition | null,
   ): Promise<Record<string, unknown>> {
-    if (!pluginDef?.configSchema) {
-      return config;
+    let normalizedConfig = config;
+    if (pluginDef?.configSchema) {
+      normalizedConfig = await pluginDef.configSchema.parseAsync(config);
     }
 
-    return pluginDef.configSchema.parse(config);
+    if (!pluginDef?.normalizeConfig) {
+      return normalizedConfig;
+    }
+
+    return pluginDef.normalizeConfig(normalizedConfig, {
+      db: this.db,
+    });
   }
 }
 

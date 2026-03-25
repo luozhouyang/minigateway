@@ -1,5 +1,12 @@
 // Admin API Types
 
+import type {
+  LlmModelResourceConfig,
+  LlmProviderAuthConfig,
+  LlmProviderResourceConfig,
+} from "../plugins/llm/config.js";
+import type { LlmClientProfile, LlmProviderProtocol, LlmProviderVendor } from "../plugins/llm/types.js";
+
 export type { StatusCode } from "hono/utils/http-status";
 
 // API Response Types
@@ -140,4 +147,33 @@ export interface CredentialResponse {
   credential: Record<string, unknown>;
   tags: string[];
   createdAt: string;
+}
+
+export interface LlmProviderResponse {
+  id: string;
+  name: string;
+  displayName: string;
+  vendor: LlmProviderVendor;
+  enabled: boolean;
+  protocol: LlmProviderProtocol;
+  baseUrl: string;
+  clients: LlmClientProfile[] | null;
+  headers: Record<string, string>;
+  auth: LlmProviderAuthConfig;
+  adapterConfig: LlmProviderResourceConfig["adapterConfig"];
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LlmModelResponse {
+  id: string;
+  providerId: string;
+  name: string;
+  upstreamModel: string;
+  enabled: boolean;
+  metadata: LlmModelResourceConfig["metadata"];
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
 }

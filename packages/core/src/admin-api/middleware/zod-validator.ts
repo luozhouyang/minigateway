@@ -13,7 +13,7 @@ export function zodValidator<T extends z.ZodType, P extends keyof ValidationTarg
   schema: T,
 ) {
   return zValidator(target, schema, (result) => {
-    if (!result.success) {
+    if ("error" in result) {
       throw result.error;
     }
   });

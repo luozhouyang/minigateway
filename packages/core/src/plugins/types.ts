@@ -3,8 +3,10 @@
 import type Database from "better-sqlite3";
 import type { ZodType } from "zod";
 import type { Consumer, Route, Service, Target } from "../entities/types.js";
+import type { DatabaseService } from "../storage/database.js";
 import type { AppLogger } from "../utils/debug-logger.js";
 import type { HttpRequestSnapshot, HttpRequestState, HttpResponseState } from "./runtime.js";
+import type { LlmRouterPluginConfig } from "./llm/config.js";
 
 /**
  * A single persisted plugin binding.
@@ -81,6 +83,10 @@ export interface PluginMigration {
   up: string | ((ctx: PluginStorageContext) => void);
 }
 
+export interface PluginConfigNormalizationContext {
+  db: DatabaseService;
+}
+
 /**
  * Plugin definition loaded by the runtime.
  */
@@ -90,6 +96,10 @@ export interface PluginDefinition {
   priority?: number;
   phases: PluginPhase[];
   configSchema?: ZodType<Record<string, unknown>>;
+  normalizeConfig?: (
+    config: Record<string, unknown>,
+    ctx: PluginConfigNormalizationContext,
+  ) => Promise<Record<string, unknown>> | Record<string, unknown>;
   migrations?: PluginMigration[];
   createStorage?: (ctx: PluginStorageContext) => unknown;
   onAccess?: PluginHandler;
@@ -103,6 +113,9 @@ export type BuiltinPluginType =
   | "rate-limit"
   | "key-auth"
   | "file-log"
+  | "llm-inbound-openai"
+  | "llm-inbound-anthropic"
+  | "llm-router"
   | "request-transformer"
   | "response-transformer";
 
@@ -141,6 +154,10 @@ export interface BuiltinPluginConfigs {
     reopen?: boolean;
     include_body?: boolean;
   };
+
+  "llm-inbound-openai": {};
+  "llm-inbound-anthropic": {};
+  "llm-router": LlmRouterPluginConfig;
 
   "request-transformer": Record<string, unknown>;
   "response-transformer": Record<string, unknown>;

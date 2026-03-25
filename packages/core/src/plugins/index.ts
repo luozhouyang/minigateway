@@ -13,5 +13,8 @@ export { LoggerPlugin } from "./builtins/logger.js";
 export { RateLimitPlugin } from "./builtins/rate-limit.js";
 export { KeyAuthPlugin } from "./builtins/key-auth.js";
 export { FileLogPlugin } from "./builtins/file-log.js";
+export { LlmInboundOpenAIPlugin } from "./builtins/llm-inbound-openai.js";
+export { LlmInboundAnthropicPlugin } from "./builtins/llm-inbound-anthropic.js";
+export { LlmRouterPlugin } from "./builtins/llm-router.js";
 export { RequestTransformerPlugin } from "./builtins/request-transformer.js";
 export { ResponseTransformerPlugin } from "./builtins/response-transformer.js";

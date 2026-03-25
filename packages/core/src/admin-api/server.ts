@@ -10,6 +10,8 @@ import { createUpstreamsRoutes } from "./routes/upstreams.js";
 import { createTargetsRoutes } from "./routes/targets.js";
 import { createConsumersRoutes } from "./routes/consumers.js";
 import { createCredentialsRoutes } from "./routes/credentials.js";
+import { createLlmModelsRoutes } from "./routes/llm-models.js";
+import { createLlmProvidersRoutes } from "./routes/llm-providers.js";
 import { createPluginsRoutes } from "./routes/plugins.js";
 import { DatabaseService } from "../storage/database.js";
 import { PluginManager } from "../plugins/plugin-manager.js";
@@ -80,6 +82,8 @@ export function createAdminApi(options: AdminApiOptions): Hono {
   const targetsRoutes = createTargetsRoutes(options.db);
   const consumersRoutes = createConsumersRoutes(options.db);
   const credentialsRoutes = createCredentialsRoutes(options.db);
+  const llmProvidersRoutes = createLlmProvidersRoutes(options.db);
+  const llmModelsRoutes = createLlmModelsRoutes(options.db);
   const pluginsRoutes = createPluginsRoutes(options.db, options.pluginManager);
 
   // Mount routes at root
@@ -90,6 +94,8 @@ export function createAdminApi(options: AdminApiOptions): Hono {
   app.route("/", targetsRoutes); // Routes include /upstreams/:upstreamId/targets
   app.route("/consumers", consumersRoutes);
   app.route("/", credentialsRoutes); // Routes include /consumers/:consumerId/credentials
+  app.route("/llm-providers", llmProvidersRoutes);
+  app.route("/llm-models", llmModelsRoutes);
   app.route("/plugins", pluginsRoutes);
 
   // Health check endpoint

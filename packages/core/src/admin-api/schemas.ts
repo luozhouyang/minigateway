@@ -1,6 +1,25 @@
 // Zod Schemas for Admin API Validation
 
 import { z } from "zod";
+import {
+  LlmModelResourceSchema,
+  LlmProviderResourceSchema,
+} from "../plugins/llm/config.js";
+import { LLM_PROVIDER_PROTOCOLS, LLM_PROVIDER_VENDORS } from "../plugins/llm/types.js";
+
+const queryBooleanSchema = z.preprocess((value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") {
+      return true;
+    }
+    if (normalized === "false" || normalized === "0") {
+      return false;
+    }
+  }
+
+  return value;
+}, z.boolean());
 
 // Pagination schema
 export const paginationSchema = z.object({
@@ -100,6 +119,34 @@ export const createCredentialSchema = z.object({
 
 export const updateCredentialSchema = createCredentialSchema.partial();
 
+// LLM provider schemas
+export const createLlmProviderSchema = LlmProviderResourceSchema.extend({
+  tags: z.array(z.string()).optional(),
+});
+
+export const updateLlmProviderSchema = createLlmProviderSchema.partial();
+
+export const llmProviderFilterSchema = z.object({
+  name: z.string().optional(),
+  vendor: z.enum(LLM_PROVIDER_VENDORS).optional(),
+  protocol: z.enum(LLM_PROVIDER_PROTOCOLS).optional(),
+  enabled: queryBooleanSchema.optional(),
+});
+
+// LLM model schemas
+export const createLlmModelSchema = LlmModelResourceSchema.extend({
+  tags: z.array(z.string()).optional(),
+});
+
+export const updateLlmModelSchema = createLlmModelSchema.partial();
+
+export const llmModelFilterSchema = z.object({
+  providerId: z.string().optional(),
+  providerName: z.string().optional(),
+  name: z.string().optional(),
+  enabled: queryBooleanSchema.optional(),
+});
+
 // Plugin schemas
 export const createPluginSchema = z.object({
   name: z.string().min(1),
@@ -142,7 +189,7 @@ export const pluginFilterSchema = z.object({
   serviceId: z.string().optional(),
   routeId: z.string().optional(),
   consumerId: z.string().optional(),
-  enabled: z.coerce.boolean().optional(),
+  enabled: queryBooleanSchema.optional(),
 });
 
 // Type exports
@@ -158,5 +205,9 @@ export type CreateConsumerInput = z.infer<typeof createConsumerSchema>;
 export type UpdateConsumerInput = z.infer<typeof updateConsumerSchema>;
 export type CreateCredentialInput = z.infer<typeof createCredentialSchema>;
 export type UpdateCredentialInput = z.infer<typeof updateCredentialSchema>;
+export type CreateLlmProviderInput = z.infer<typeof createLlmProviderSchema>;
+export type UpdateLlmProviderInput = z.infer<typeof updateLlmProviderSchema>;
+export type CreateLlmModelInput = z.infer<typeof createLlmModelSchema>;
+export type UpdateLlmModelInput = z.infer<typeof updateLlmModelSchema>;
 export type CreatePluginInput = z.infer<typeof createPluginSchema>;
 export type UpdatePluginInput = z.infer<typeof updatePluginSchema>;

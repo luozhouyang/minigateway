@@ -10,6 +10,8 @@ export type {
   Consumer,
   Plugin as PluginBinding,
   Credential,
+  LlmProvider,
+  LlmModel,
   CreateServiceInput,
   CreateRouteInput,
   CreateUpstreamInput,
@@ -17,4 +19,6 @@ export type {
   CreateConsumerInput,
   CreatePluginBindingInput,
   CreateCredentialInput,
+  CreateLlmProviderInput,
+  CreateLlmModelInput,
 } from "../storage/schema.js";

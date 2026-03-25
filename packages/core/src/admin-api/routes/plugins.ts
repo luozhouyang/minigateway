@@ -1,6 +1,7 @@
 // Plugins Routes
 
 import { Hono } from "hono";
+import { ZodError } from "zod";
 import { zodValidator } from "../middleware/zod-validator.js";
 import {
   createPluginSchema,
@@ -135,6 +136,20 @@ async function createOrThrowBadRequest<T>(operation: () => Promise<T>): Promise<
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Unknown plugin:")) {
       throw ApiError.badRequest(error.message);
+    }
+
+    if (error instanceof Error && error.message.startsWith("Invalid plugin config:")) {
+      throw ApiError.badRequest(error.message);
+    }
+
+    if (error instanceof ZodError) {
+      throw ApiError.badRequest(
+        "Plugin config validation failed",
+        error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      );
     }
 
     throw error;

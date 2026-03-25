@@ -9,6 +9,8 @@ import {
 import path from "path";
 import fs from "fs/promises";
 import { fileURLToPath } from "url";
+import { createAdminCommand } from "../commands/admin/index.js";
+import { createLlmRouterCommand } from "../commands/llm-router.js";
 
 const program = new Command();
 
@@ -123,5 +125,8 @@ program
   .action(() => {
     console.log("Server status check not implemented yet");
   });
+
+program.addCommand(createAdminCommand());
+program.addCommand(createLlmRouterCommand());
 
 program.parse();

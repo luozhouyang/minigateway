@@ -8,7 +8,9 @@ import { createPluginTestContext } from "./test-context.js";
 import type { PluginDefinition, PluginInstance } from "./types.js";
 import { DatabaseService } from "../storage/database.js";
 import { runMigrations } from "../storage/migrations.js";
-import { plugins, routes, services } from "../storage/schema.js";
+import { PluginBindingRepository } from "../entities/plugin-binding.js";
+import { RouteRepository } from "../entities/route.js";
+import { ServiceRepository } from "../entities/service.js";
 
 describe("PluginLoader", () => {
   let loader: PluginLoader;
@@ -19,6 +21,15 @@ describe("PluginLoader", () => {
 
   test("loads new builtin plugins", async () => {
     await expect(loader.loadBuiltin("file-log")).resolves.toMatchObject({ name: "file-log" });
+    await expect(loader.loadBuiltin("llm-inbound-openai")).resolves.toMatchObject({
+      name: "llm-inbound-openai",
+    });
+    await expect(loader.loadBuiltin("llm-inbound-anthropic")).resolves.toMatchObject({
+      name: "llm-inbound-anthropic",
+    });
+    await expect(loader.loadBuiltin("llm-router")).resolves.toMatchObject({
+      name: "llm-router",
+    });
     await expect(loader.loadBuiltin("request-transformer")).resolves.toMatchObject({
       name: "request-transformer",
     });
@@ -35,6 +46,9 @@ describe("PluginLoader", () => {
         "rate-limit",
         "key-auth",
         "file-log",
+        "llm-inbound-openai",
+        "llm-inbound-anthropic",
+        "llm-router",
         "request-transformer",
         "response-transformer",
       ]),
@@ -47,6 +61,9 @@ describe("PluginManager", () => {
   let dbPath: string;
   let db: DatabaseService;
   let manager: PluginManager;
+  let pluginRepo: PluginBindingRepository;
+  let routeRepo: RouteRepository;
+  let serviceRepo: ServiceRepository;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "plugin-manager-test-"));
@@ -54,6 +71,9 @@ describe("PluginManager", () => {
     db = new DatabaseService(dbPath);
     runMigrations(dbPath);
     manager = new PluginManager(db);
+    pluginRepo = new PluginBindingRepository(db);
+    routeRepo = new RouteRepository(db);
+    serviceRepo = new ServiceRepository(db);
   });
 
   afterEach(() => {
@@ -119,90 +139,80 @@ describe("PluginManager", () => {
   });
 
   test("resolves the most specific binding for a plugin name", async () => {
-    const dbClient = db.getDrizzleDb();
-    dbClient
-      .insert(services)
-      .values({
-        id: "service-1",
-        name: "service-1",
-      })
-      .run();
-    dbClient
-      .insert(routes)
-      .values({
-        id: "route-1",
-        name: "route-1",
-        serviceId: "service-1",
-        paths: ["/route-1"],
-      })
-      .run();
-    dbClient
-      .insert(plugins)
-      .values([
-        {
-          id: "global-cors",
-          name: "cors",
-          config: { origins: ["*"] },
-          enabled: true,
-          tags: [],
-        },
-        {
-          id: "service-cors",
-          name: "cors",
-          serviceId: "service-1",
-          config: { origins: ["https://service.example"] },
-          enabled: true,
-          tags: [],
-        },
-        {
-          id: "route-cors",
-          name: "cors",
-          routeId: "route-1",
-          serviceId: "service-1",
-          config: { origins: ["https://route.example"] },
-          enabled: true,
-          tags: [],
-        },
-      ])
-      .run();
+    const service = await serviceRepo.create({
+      name: "service-1",
+      url: "http://service-1.example.com",
+      protocol: "http",
+      host: "service-1.example.com",
+      port: 80,
+      connectTimeout: 60_000,
+      writeTimeout: 60_000,
+      readTimeout: 60_000,
+      retries: 5,
+      tags: [],
+    });
+    const route = await routeRepo.create({
+      name: "route-1",
+      serviceId: service.id,
+      paths: ["/route-1"],
+      protocols: ["http"],
+      stripPath: false,
+      preserveHost: false,
+      regexPriority: 0,
+      pathHandling: "v0",
+      tags: [],
+    });
+    await pluginRepo.create({
+      name: "cors",
+      config: { origins: ["*"] },
+      enabled: true,
+      tags: [],
+    });
+    await pluginRepo.create({
+      name: "cors",
+      serviceId: service.id,
+      config: { origins: ["https://service.example"] },
+      enabled: true,
+      tags: [],
+    });
+    const routePlugin = await pluginRepo.create({
+      name: "cors",
+      routeId: route.id,
+      serviceId: service.id,
+      config: { origins: ["https://route.example"] },
+      enabled: true,
+      tags: [],
+    });
 
     const resolved = await manager.resolvePluginInstances({
-      routeId: "route-1",
-      serviceId: "service-1",
+      routeId: route.id,
+      serviceId: service.id,
     });
 
     expect(resolved).toHaveLength(1);
     expect(resolved[0]).toMatchObject({
-      id: "route-cors",
+      id: routePlugin.id,
       name: "cors",
     });
   });
 
   test("returns independent plugins after precedence resolution", async () => {
-    const dbClient = db.getDrizzleDb();
-    dbClient
-      .insert(plugins)
-      .values([
-        {
-          id: "cors-global",
-          name: "cors",
-          config: { origins: ["*"] },
-          enabled: true,
-          tags: [],
+    await pluginRepo.create({
+      name: "cors",
+      config: { origins: ["*"] },
+      enabled: true,
+      tags: [],
+    });
+    await pluginRepo.create({
+      name: "request-transformer",
+      config: {
+        add: {
+          headers: ["x-added:true"],
         },
-        {
-          id: "request-transformer-global",
-          name: "request-transformer",
-          config: {
-            add: {
-              headers: ["x-added:true"],
-            },
-          },
-          enabled: true,
-          tags: [],
-        },
-      ])
-      .run();
+      },
+      enabled: true,
+      tags: [],
+    });
 
     const resolved = await manager.resolvePluginInstances({});
 

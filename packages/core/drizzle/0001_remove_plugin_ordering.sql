@@ -18,19 +18,25 @@ CREATE TABLE `plugins_new` (
 	FOREIGN KEY (`route_id`) REFERENCES `routes`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`consumer_id`) REFERENCES `consumers`(`id`) ON UPDATE no action ON DELETE cascade
 );
+--> statement-breakpoint
 
 -- Step 2: Copy data from old table to new table (excluding deprecated columns)
 INSERT INTO `plugins_new` (`id`, `name`, `service_id`, `route_id`, `consumer_id`, `config`, `enabled`, `tags`, `created_at`, `updated_at`)
 SELECT `id`, `name`, `service_id`, `route_id`, `consumer_id`, `config`, `enabled`, `tags`, `created_at`, `updated_at`
 FROM `plugins`;
+--> statement-breakpoint
 
 -- Step 3: Drop the old table
 DROP TABLE `plugins`;
+--> statement-breakpoint
 
 -- Step 4: Rename the new table to plugins
 ALTER TABLE `plugins_new` RENAME TO `plugins`;
+--> statement-breakpoint
 
 -- Step 5: Recreate indexes
 CREATE INDEX `idx_plugins_service_id` ON `plugins` (`service_id`);
+--> statement-breakpoint
 CREATE INDEX `idx_plugins_route_id` ON `plugins` (`route_id`);
+--> statement-breakpoint
 CREATE INDEX `idx_plugins_consumer_id` ON `plugins` (`consumer_id`);

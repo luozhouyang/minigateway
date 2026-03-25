@@ -6,6 +6,8 @@ import { createRoutesCommand } from "./routes.js";
 import { createUpstreamsCommand } from "./upstreams.js";
 import { createTargetsCommand } from "./targets.js";
 import { createConsumersCommand } from "./consumers.js";
+import { createLlmProvidersCommand } from "./llm-providers.js";
+import { createLlmModelsCommand } from "./llm-models.js";
 import { createPluginsCommand } from "./plugins.js";
 
 export function createAdminCommand(): Command {
@@ -18,6 +20,8 @@ export function createAdminCommand(): Command {
   admin.addCommand(createUpstreamsCommand());
   admin.addCommand(createTargetsCommand());
   admin.addCommand(createConsumersCommand());
+  admin.addCommand(createLlmProvidersCommand());
+  admin.addCommand(createLlmModelsCommand());
   admin.addCommand(createPluginsCommand());
 
   return admin;
