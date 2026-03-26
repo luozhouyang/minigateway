@@ -29,15 +29,12 @@
   "publishConfig": {
     "access": "public"
   },
-  "engines": {
-    "node": "24.14.0"
-  },
   "scripts": {
-    "build": "node ../../scripts/run-local-vp.mjs pack src/index.ts && node ./scripts/copy-drizzle.mjs",
-    "dev": "node ../../scripts/run-local-vp.mjs pack --watch src/index.ts",
-    "prepack": "node ../../scripts/run-local-vp.mjs run build",
-    "test": "node ../../scripts/run-local-vp.mjs test",
-    "check": "node ./scripts/run-check.mjs"
+    "build": "vp pack src/index.ts && node ./scripts/copy-drizzle.mjs",
+    "dev": "vp pack --watch src/index.ts",
+    "prepack": "vp run build",
+    "test": "vp test",
+    "check": "vp check"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.11",
@@ -55,5 +52,8 @@
     "@typescript/native-preview": "7.0.0-dev.20260316.1",
     "typescript": "^5.9.3",
     "vite-plus": "0.1.13"
+  },
+  "engines": {
+    "node": "24.14.0"
   }
 }

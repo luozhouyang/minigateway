@@ -148,13 +148,15 @@ export function createLlmRouterCommand(): Command {
       if (selectedProviderNames.length === 0) {
         throw new Error("At least one LLM provider preset must be specified");
       }
-      const presets = selectedProviderNames.map((name: string) => {
-        const preset = PROVIDER_PRESETS[name];
-        if (!preset) {
-          throw new Error(`Unknown LLM provider preset: ${name}`);
-        }
-        return preset;
-      });
+      const presets = (selectedProviderNames as Array<keyof typeof PROVIDER_PRESETS>).map(
+        (name) => {
+          const preset = PROVIDER_PRESETS[name];
+          if (!preset) {
+            throw new Error(`Unknown LLM provider preset: ${name}`);
+          }
+          return preset;
+        },
+      );
 
       const service = await ensureService(client, {
         name: options.serviceName,
@@ -336,7 +338,10 @@ async function ensurePlugin(
   return client.post<PluginResource>("/plugins", requestBody);
 }
 
-async function ensureProvider(client: HttpClient, preset: ProviderPreset): Promise<ProviderResource> {
+async function ensureProvider(
+  client: HttpClient,
+  preset: ProviderPreset,
+): Promise<ProviderResource> {
   const existing = await findByExactName<ProviderResource>(client, "/llm-providers", preset.name);
   const body = {
     name: preset.name,
@@ -401,5 +406,7 @@ async function findByExactName<T extends { id: string; name: string }>(
     name,
   });
 
-  return client.get<T[]>(`${path}?${params}`).then((items) => items.find((item) => item.name === name));
+  return client
+    .get<T[]>(`${path}?${params}`)
+    .then((items) => items.find((item) => item.name === name));
 }

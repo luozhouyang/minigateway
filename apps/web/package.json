@@ -2,18 +2,15 @@
   "name": "web",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": "24.14.0"
-  },
   "imports": {
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "node ../../scripts/run-local-vp.mjs dev --port 3000",
-    "build": "node ../../scripts/run-local-vp.mjs build",
-    "preview": "node ../../scripts/run-local-vp.mjs preview",
-    "test": "node ../../scripts/run-local-vp.mjs test --passWithNoTests",
-    "check": "node ./scripts/run-check.mjs"
+    "dev": "vp dev --port 3000",
+    "build": "vp build",
+    "preview": "vp preview",
+    "test": "vp test --passWithNoTests",
+    "check": "vp check"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -48,11 +45,13 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^5.1.4",
     "jsdom": "^28.1.0",
     "typescript": "^5.7.2",
     "vite": "^7.3.1",
     "vite-plus": "0.1.13",
     "vite-tsconfig-paths": "^5.1.4"
+  },
+  "engines": {
+    "node": "24.14.0"
   }
 }

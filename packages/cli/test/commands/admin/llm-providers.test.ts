@@ -153,11 +153,9 @@ describe("admin llm-providers", () => {
   it("rejects invalid JSON auth", async () => {
     const command = createTestCommand();
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const exitSpy = vi
-      .spyOn(process, "exit")
-      .mockImplementation(((code?: number) => {
-        throw new Error(`exit:${code ?? 0}`);
-      }) as never);
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`exit:${code ?? 0}`);
+    }) as never);
 
     await expect(
       command.parseAsync([

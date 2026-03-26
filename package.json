@@ -9,18 +9,17 @@
   ],
   "type": "module",
   "scripts": {
-    "bootstrap": "node ./scripts/bootstrap-workspace.mjs",
-    "check": "node ./scripts/run-local-vp.mjs check package.json scripts && node ./scripts/run-workspace-task.mjs check",
-    "test": "node ./scripts/run-workspace-task.mjs test",
-    "build": "node ./scripts/run-workspace-task.mjs build",
-    "ready": "node ./scripts/run-local-vp.mjs run check && node ./scripts/run-local-vp.mjs run test && node ./scripts/run-local-vp.mjs run build",
-    "dev": "node ./scripts/run-local-vp.mjs run website#dev",
+    "check": "vp check",
+    "test": "vp test",
+    "build": "vp run build",
+    "ready": "vp check && vp test && vp run build",
+    "dev": "vp run website#dev",
     "e2e:smoke": "bash ./scripts/e2e-smoke.sh",
-    "prepare": "node ./scripts/run-local-vp.mjs config",
+    "prepare": "vp config",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish",
-    "release:check": "node ./scripts/run-local-vp.mjs run check && node ./scripts/run-local-vp.mjs run test && node ./scripts/run-local-vp.mjs run build"
+    "release:check": "vp check && vp test && vp run build"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

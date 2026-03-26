@@ -3,19 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": "24.14.0"
-  },
   "scripts": {
-    "dev": "node ../../scripts/run-local-vp.mjs dev",
-    "build": "node ../../scripts/run-local-vp.mjs build",
-    "preview": "node ../../scripts/run-local-vp.mjs preview",
-    "test": "node ../../scripts/run-local-vp.mjs test --passWithNoTests",
-    "check": "node ../../scripts/run-local-vp.mjs check"
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "test": "vp test --passWithNoTests",
+    "check": "vp check"
   },
   "devDependencies": {
     "typescript": "~5.9.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.1.13",
     "vite-plus": "0.1.13"
+  },
+  "engines": {
+    "node": "24.14.0"
   }
 }

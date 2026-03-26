@@ -97,13 +97,7 @@ describe("llm-router command", () => {
     const command = createTestCommand();
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
-    await command.parseAsync([
-      "node",
-      "llm-router",
-      "init",
-      "--providers",
-      "openai,anthropic",
-    ]);
+    await command.parseAsync(["node", "llm-router", "init", "--providers", "openai,anthropic"]);
 
     expect(mockPost).toHaveBeenCalledWith("/services", {
       name: "llm-router-service",

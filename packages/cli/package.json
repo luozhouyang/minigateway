@@ -24,16 +24,13 @@
   "publishConfig": {
     "access": "public"
   },
-  "engines": {
-    "node": "24.14.0"
-  },
   "scripts": {
-    "build": "node ../../scripts/run-local-vp.mjs pack src/cli/index.ts",
+    "build": "vp pack src/cli/index.ts",
     "bundle": "node ./scripts/build.mjs",
-    "dev": "node ../../scripts/run-local-vp.mjs pack --watch src/cli/index.ts",
+    "dev": "vp pack --watch src/cli/index.ts",
     "prepack": "node ./scripts/build.mjs",
-    "test": "node ../../scripts/run-local-vp.mjs test",
-    "check": "node ./scripts/run-check.mjs",
+    "test": "vp test",
+    "check": "vp check",
     "start": "node dist/index.mjs"
   },
   "dependencies": {
@@ -47,5 +44,8 @@
     "@typescript/native-preview": "7.0.0-dev.20260316.1",
     "typescript": "^5.9.3",
     "vite-plus": "0.1.13"
+  },
+  "engines": {
+    "node": "24.14.0"
   }
 }
