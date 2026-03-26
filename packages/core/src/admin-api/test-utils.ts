@@ -15,13 +15,12 @@ export interface TestContext {
   app: Hono;
 }
 
-export function createTestContext(): TestContext {
+export async function createTestContext(): Promise<TestContext> {
   const tempDir = mkdtempSync(join(tmpdir(), "admin-api-test-"));
   const dbPath = join(tempDir, "test.db");
-  const db = new DatabaseService(dbPath);
 
-  // Run database migrations
-  runMigrations(dbPath);
+  await runMigrations(dbPath);
+  const db = new DatabaseService(dbPath);
 
   // Create admin API (routes at root level)
   const adminApi = createAdminApi({ db });

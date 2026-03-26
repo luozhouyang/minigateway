@@ -1,4 +1,12 @@
-import type Database from "better-sqlite3";
+import { and, eq } from "drizzle-orm";
+import { createDatabase } from "../../storage/database.js";
+import {
+  llmModels,
+  llmProviders,
+  pluginLlmRouterCircuits,
+  pluginLlmRouterRequestLogs,
+} from "../../storage/schema.js";
+import type { DatabaseClient } from "../../storage/types.js";
 import { cloneArrayBuffer, toFetchRequest, type HttpRequestState } from "../runtime.js";
 import {
   LlmModelResourceSchema,
@@ -14,13 +22,7 @@ import {
   type StoredLlmProvider,
 } from "../llm/provider-adapters.js";
 import { normalizeLlmRequest } from "../llm/normalized-request.js";
-import {
-  type LlmClientProfile,
-  type LlmInboundProtocol,
-  type LlmProviderProtocol,
-  type LlmProviderVendor,
-  type NormalizedLlmRequest,
-} from "../llm/types.js";
+import { type LlmClientProfile, type NormalizedLlmRequest } from "../llm/types.js";
 import type { PluginContext, PluginDefinition, PluginHandlerResult } from "../types.js";
 
 type LlmRouterConfig = LlmRouterPluginConfig;
@@ -43,20 +45,20 @@ interface AttemptLogEntry {
 }
 
 interface LlmRouterStorage {
-  getProviderByName(providerName: string): StoredLlmProvider | null;
-  getModelByProviderAndName(providerId: string, modelName: string): StoredLlmModel | null;
+  getProviderByName(providerName: string): Promise<StoredLlmProvider | null>;
+  getModelByProviderAndName(providerId: string, modelName: string): Promise<StoredLlmModel | null>;
   getCircuitState(input: {
     pluginId: string;
     providerName: string;
     now: number;
     openTimeoutMs: number;
-  }): CircuitSnapshot;
+  }): Promise<CircuitSnapshot>;
   markSuccess(input: {
     pluginId: string;
     providerName: string;
     now: number;
     successThreshold: number;
-  }): void;
+  }): Promise<void>;
   markFailure(input: {
     pluginId: string;
     providerName: string;
@@ -64,8 +66,8 @@ interface LlmRouterStorage {
     failureThreshold: number;
     minimumRequests: number;
     errorRateThreshold: number;
-  }): void;
-  logAttempt(input: AttemptLogEntry): void;
+  }): Promise<void>;
+  logAttempt(input: AttemptLogEntry): Promise<void>;
 }
 
 export const LlmRouterPlugin: PluginDefinition = {
@@ -133,7 +135,7 @@ export const LlmRouterPlugin: PluginDefinition = {
       return badRequest(parsedModelReference.error);
     }
 
-    const provider = storage.getProviderByName(parsedModelReference.providerName);
+    const provider = await storage.getProviderByName(parsedModelReference.providerName);
     if (!provider) {
       return badRequest(`Unknown LLM provider "${parsedModelReference.providerName}"`);
     }
@@ -141,7 +143,10 @@ export const LlmRouterPlugin: PluginDefinition = {
       return unavailable(`LLM provider "${provider.name}" is disabled`);
     }
 
-    const model = storage.getModelByProviderAndName(provider.id, parsedModelReference.modelName);
+    const model = await storage.getModelByProviderAndName(
+      provider.id,
+      parsedModelReference.modelName,
+    );
     if (!model) {
       return badRequest(
         `Unknown LLM model "${parsedModelReference.modelName}" for provider "${provider.name}"`,
@@ -159,7 +164,7 @@ export const LlmRouterPlugin: PluginDefinition = {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const now = Date.now();
-      const circuit = storage.getCircuitState({
+      const circuit = await storage.getCircuitState({
         pluginId: ctx.plugin.id,
         providerName: provider.name,
         now,
@@ -167,7 +172,7 @@ export const LlmRouterPlugin: PluginDefinition = {
       });
 
       if (circuit.shouldSkip) {
-        persistAttemptLog(storage, config, {
+        await persistAttemptLog(storage, config, {
           pluginId: ctx.plugin.id,
           requestId: ctx.requestId,
           clientType: clientProfile,
@@ -228,7 +233,7 @@ export const LlmRouterPlugin: PluginDefinition = {
         ctx.upstreamCompletedAt = completedAt;
 
         if (config.retryOnStatus.includes(upstreamResponse.status) && attempt < maxAttempts) {
-          storage.markFailure({
+          await storage.markFailure({
             pluginId: ctx.plugin.id,
             providerName: provider.name,
             now: completedAt,
@@ -237,7 +242,7 @@ export const LlmRouterPlugin: PluginDefinition = {
             errorRateThreshold: config.circuitBreaker.errorRateThreshold,
           });
           lastFailureReason = `Provider "${provider.name}" returned retryable status ${upstreamResponse.status}`;
-          persistAttemptLog(storage, config, {
+          await persistAttemptLog(storage, config, {
             pluginId: ctx.plugin.id,
             requestId: ctx.requestId,
             clientType: clientProfile,
@@ -251,7 +256,7 @@ export const LlmRouterPlugin: PluginDefinition = {
         }
 
         if (config.retryOnStatus.includes(upstreamResponse.status)) {
-          storage.markFailure({
+          await storage.markFailure({
             pluginId: ctx.plugin.id,
             providerName: provider.name,
             now: completedAt,
@@ -260,7 +265,7 @@ export const LlmRouterPlugin: PluginDefinition = {
             errorRateThreshold: config.circuitBreaker.errorRateThreshold,
           });
         } else {
-          storage.markSuccess({
+          await storage.markSuccess({
             pluginId: ctx.plugin.id,
             providerName: provider.name,
             now: completedAt,
@@ -274,7 +279,7 @@ export const LlmRouterPlugin: PluginDefinition = {
           response: upstreamResponse,
         });
 
-        persistAttemptLog(storage, config, {
+        await persistAttemptLog(storage, config, {
           pluginId: ctx.plugin.id,
           requestId: ctx.requestId,
           clientType: clientProfile,
@@ -297,7 +302,7 @@ export const LlmRouterPlugin: PluginDefinition = {
         const latencyMs = completedAt - startedAt;
         ctx.upstreamCompletedAt = completedAt;
 
-        storage.markFailure({
+        await storage.markFailure({
           pluginId: ctx.plugin.id,
           providerName: provider.name,
           now: completedAt,
@@ -307,7 +312,7 @@ export const LlmRouterPlugin: PluginDefinition = {
         });
 
         lastFailureReason = getErrorMessage(error);
-        persistAttemptLog(storage, config, {
+        await persistAttemptLog(storage, config, {
           pluginId: ctx.plugin.id,
           requestId: ctx.requestId,
           clientType: clientProfile,
@@ -324,233 +329,16 @@ export const LlmRouterPlugin: PluginDefinition = {
   },
 };
 
-export function createLlmRouterStorage(rawDb: Database.Database): LlmRouterStorage {
-  const selectProviderStmt = rawDb.prepare<
-    [string],
-    {
-      id: string;
-      name: string;
-      display_name: string | null;
-      vendor: LlmProviderVendor;
-      enabled: number | null;
-      protocol: LlmProviderProtocol;
-      base_url: string;
-      clients: string | null;
-      headers: string | null;
-      auth: string | null;
-      adapter_config: string | null;
-    }
-  >(
-    `SELECT
-       id,
-       name,
-       display_name,
-       vendor,
-       enabled,
-       protocol,
-       base_url,
-       clients,
-       headers,
-       auth,
-       adapter_config
-     FROM llm_providers
-     WHERE name = ?`,
-  );
-  const selectModelStmt = rawDb.prepare<
-    [string, string],
-    {
-      id: string;
-      provider_id: string;
-      name: string;
-      upstream_model: string;
-      enabled: number | null;
-      metadata: string | null;
-    }
-  >(
-    `SELECT
-       id,
-       provider_id,
-       name,
-       upstream_model,
-       enabled,
-       metadata
-     FROM llm_models
-     WHERE provider_id = ?
-       AND name = ?`,
-  );
-  const selectCircuitStmt = rawDb.prepare<
-    [string, string],
-    {
-      state: CircuitState;
-      consecutive_failures: number;
-      consecutive_successes: number;
-      request_count: number;
-      failure_count: number;
-      opened_at: number | null;
-    }
-  >(
-    `SELECT
-       state,
-       consecutive_failures,
-       consecutive_successes,
-       request_count,
-       failure_count,
-       opened_at
-     FROM plugin_llm_router_circuits
-     WHERE plugin_id = ?
-       AND provider_name = ?`,
-  );
-  const upsertCircuitStmt = rawDb.prepare<
-    [string, string, CircuitState, number, number, number, number, number | null, string, string]
-  >(
-    `INSERT INTO plugin_llm_router_circuits (
-       plugin_id,
-       provider_name,
-       state,
-       consecutive_failures,
-       consecutive_successes,
-       request_count,
-       failure_count,
-       opened_at,
-       created_at,
-       updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(plugin_id, provider_name) DO UPDATE SET
-       state = excluded.state,
-       consecutive_failures = excluded.consecutive_failures,
-       consecutive_successes = excluded.consecutive_successes,
-       request_count = excluded.request_count,
-       failure_count = excluded.failure_count,
-       opened_at = excluded.opened_at,
-       updated_at = excluded.updated_at`,
-  );
-  const insertLogStmt = rawDb.prepare<
-    [string, string, string, string, string | null, number | null, number, string | null, string]
-  >(
-    `INSERT INTO plugin_llm_router_request_logs (
-       plugin_id,
-       request_id,
-       client_type,
-       provider_name,
-       model,
-       status_code,
-       latency_ms,
-       failure_reason,
-       created_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  );
-
-  const getCircuitState = rawDb.transaction(
-    (
-      pluginId: string,
-      providerName: string,
-      now: number,
-      openTimeoutMs: number,
-    ): CircuitSnapshot => {
-      const existing = selectCircuitStmt.get(pluginId, providerName);
-      if (!existing) {
-        return {
-          state: "closed",
-          shouldSkip: false,
-        };
-      }
-
-      if (
-        existing.state === "open" &&
-        existing.opened_at !== null &&
-        now - existing.opened_at >= openTimeoutMs
-      ) {
-        const timestamp = new Date(now).toISOString();
-        upsertCircuitStmt.run(
-          pluginId,
-          providerName,
-          "half-open",
-          existing.consecutive_failures,
-          0,
-          existing.request_count,
-          existing.failure_count,
-          existing.opened_at,
-          timestamp,
-          timestamp,
-        );
-        return {
-          state: "half-open",
-          shouldSkip: false,
-        };
-      }
-
-      return {
-        state: existing.state,
-        shouldSkip: existing.state === "open",
-      };
-    },
-  );
-
-  const markSuccess = rawDb.transaction(
-    (pluginId: string, providerName: string, now: number, successThreshold: number): void => {
-      const existing = selectCircuitStmt.get(pluginId, providerName);
-      const requestCount = (existing?.request_count ?? 0) + 1;
-      const failureCount = existing?.failure_count ?? 0;
-      const wasHalfOpen = existing?.state === "half-open";
-      const consecutiveSuccesses = wasHalfOpen ? (existing?.consecutive_successes ?? 0) + 1 : 0;
-      const nextState =
-        wasHalfOpen && consecutiveSuccesses < successThreshold ? "half-open" : "closed";
-      const timestamp = new Date(now).toISOString();
-
-      upsertCircuitStmt.run(
-        pluginId,
-        providerName,
-        nextState,
-        0,
-        nextState === "half-open" ? consecutiveSuccesses : 0,
-        requestCount,
-        failureCount,
-        null,
-        timestamp,
-        timestamp,
-      );
-    },
-  );
-
-  const markFailure = rawDb.transaction(
-    (
-      pluginId: string,
-      providerName: string,
-      now: number,
-      failureThreshold: number,
-      minimumRequests: number,
-      errorRateThreshold: number,
-    ): void => {
-      const existing = selectCircuitStmt.get(pluginId, providerName);
-      const requestCount = (existing?.request_count ?? 0) + 1;
-      const failureCount = (existing?.failure_count ?? 0) + 1;
-      const consecutiveFailures = (existing?.consecutive_failures ?? 0) + 1;
-      const errorRate = requestCount > 0 ? failureCount / requestCount : 0;
-      const shouldOpen =
-        existing?.state === "half-open" ||
-        consecutiveFailures >= failureThreshold ||
-        (requestCount >= minimumRequests && errorRate >= errorRateThreshold);
-      const nextState: CircuitState = shouldOpen ? "open" : "closed";
-      const timestamp = new Date(now).toISOString();
-
-      upsertCircuitStmt.run(
-        pluginId,
-        providerName,
-        nextState,
-        consecutiveFailures,
-        0,
-        requestCount,
-        failureCount,
-        nextState === "open" ? now : null,
-        timestamp,
-        timestamp,
-      );
-    },
-  );
+export function createLlmRouterStorage(rawDb: DatabaseClient): LlmRouterStorage {
+  const db = createDatabase(rawDb);
 
   return {
-    getProviderByName(providerName) {
-      const row = selectProviderStmt.get(providerName);
+    async getProviderByName(providerName) {
+      const row = await db
+        .select()
+        .from(llmProviders)
+        .where(eq(llmProviders.name, providerName))
+        .get();
       if (!row) {
         return null;
       }
@@ -559,20 +347,24 @@ export function createLlmRouterStorage(rawDb: Database.Database): LlmRouterStora
         id: row.id,
         ...LlmProviderResourceSchema.parse({
           name: row.name,
-          displayName: row.display_name ?? row.name,
+          displayName: row.displayName ?? row.name,
           vendor: row.vendor ?? "custom",
-          enabled: row.enabled === null ? true : row.enabled === 1,
+          enabled: row.enabled ?? true,
           protocol: row.protocol,
-          baseUrl: row.base_url,
-          clients: parseJsonValue(row.clients, undefined),
-          headers: parseJsonValue(row.headers, {}),
-          auth: parseJsonValue(row.auth, { type: "none" }),
-          adapterConfig: parseJsonValue(row.adapter_config, {}),
+          baseUrl: row.baseUrl,
+          clients: row.clients ?? undefined,
+          headers: row.headers ?? {},
+          auth: row.auth ?? { type: "none" },
+          adapterConfig: row.adapterConfig ?? {},
         }),
       };
     },
-    getModelByProviderAndName(providerId, modelName) {
-      const row = selectModelStmt.get(providerId, modelName);
+    async getModelByProviderAndName(providerId, modelName) {
+      const row = await db
+        .select()
+        .from(llmModels)
+        .where(and(eq(llmModels.providerId, providerId), eq(llmModels.name, modelName)))
+        .get();
       if (!row) {
         return null;
       }
@@ -580,42 +372,192 @@ export function createLlmRouterStorage(rawDb: Database.Database): LlmRouterStora
       return {
         id: row.id,
         ...LlmModelResourceSchema.parse({
-          providerId: row.provider_id,
+          providerId: row.providerId,
           name: row.name,
-          upstreamModel: row.upstream_model,
-          enabled: row.enabled === null ? true : row.enabled === 1,
-          metadata: parseJsonValue(row.metadata, {}),
+          upstreamModel: row.upstreamModel,
+          enabled: row.enabled ?? true,
+          metadata: row.metadata ?? {},
         }),
       };
     },
-    getCircuitState(input) {
-      return getCircuitState(input.pluginId, input.providerName, input.now, input.openTimeoutMs);
+    async getCircuitState(input) {
+      return db.transaction(async (tx) => {
+        const existing = await tx
+          .select()
+          .from(pluginLlmRouterCircuits)
+          .where(
+            and(
+              eq(pluginLlmRouterCircuits.pluginId, input.pluginId),
+              eq(pluginLlmRouterCircuits.providerName, input.providerName),
+            ),
+          )
+          .get();
+
+        if (!existing) {
+          return {
+            state: "closed",
+            shouldSkip: false,
+          };
+        }
+
+        if (
+          existing.state === "open" &&
+          existing.openedAt !== null &&
+          input.now - existing.openedAt >= input.openTimeoutMs
+        ) {
+          const timestamp = new Date(input.now).toISOString();
+          await tx
+            .insert(pluginLlmRouterCircuits)
+            .values({
+              pluginId: input.pluginId,
+              providerName: input.providerName,
+              state: "half-open",
+              consecutiveFailures: existing.consecutiveFailures,
+              consecutiveSuccesses: 0,
+              requestCount: existing.requestCount,
+              failureCount: existing.failureCount,
+              openedAt: existing.openedAt,
+              createdAt: existing.createdAt,
+              updatedAt: timestamp,
+            })
+            .onConflictDoUpdate({
+              target: [pluginLlmRouterCircuits.pluginId, pluginLlmRouterCircuits.providerName],
+              set: {
+                state: "half-open",
+                consecutiveFailures: existing.consecutiveFailures,
+                consecutiveSuccesses: 0,
+                requestCount: existing.requestCount,
+                failureCount: existing.failureCount,
+                openedAt: existing.openedAt,
+                updatedAt: timestamp,
+              },
+            });
+
+          return {
+            state: "half-open",
+            shouldSkip: false,
+          };
+        }
+
+        return {
+          state: existing.state,
+          shouldSkip: existing.state === "open",
+        };
+      });
     },
-    markSuccess(input) {
-      markSuccess(input.pluginId, input.providerName, input.now, input.successThreshold);
+    async markSuccess(input) {
+      await db.transaction(async (tx) => {
+        const existing = await tx
+          .select()
+          .from(pluginLlmRouterCircuits)
+          .where(
+            and(
+              eq(pluginLlmRouterCircuits.pluginId, input.pluginId),
+              eq(pluginLlmRouterCircuits.providerName, input.providerName),
+            ),
+          )
+          .get();
+
+        const requestCount = (existing?.requestCount ?? 0) + 1;
+        const failureCount = existing?.failureCount ?? 0;
+        const wasHalfOpen = existing?.state === "half-open";
+        const consecutiveSuccesses = wasHalfOpen ? (existing?.consecutiveSuccesses ?? 0) + 1 : 0;
+        const nextState: CircuitState =
+          wasHalfOpen && consecutiveSuccesses < input.successThreshold ? "half-open" : "closed";
+        const timestamp = new Date(input.now).toISOString();
+
+        await tx
+          .insert(pluginLlmRouterCircuits)
+          .values({
+            pluginId: input.pluginId,
+            providerName: input.providerName,
+            state: nextState,
+            consecutiveFailures: 0,
+            consecutiveSuccesses: nextState === "half-open" ? consecutiveSuccesses : 0,
+            requestCount,
+            failureCount,
+            openedAt: null,
+            createdAt: existing?.createdAt ?? timestamp,
+            updatedAt: timestamp,
+          })
+          .onConflictDoUpdate({
+            target: [pluginLlmRouterCircuits.pluginId, pluginLlmRouterCircuits.providerName],
+            set: {
+              state: nextState,
+              consecutiveFailures: 0,
+              consecutiveSuccesses: nextState === "half-open" ? consecutiveSuccesses : 0,
+              requestCount,
+              failureCount,
+              openedAt: null,
+              updatedAt: timestamp,
+            },
+          });
+      });
     },
-    markFailure(input) {
-      markFailure(
-        input.pluginId,
-        input.providerName,
-        input.now,
-        input.failureThreshold,
-        input.minimumRequests,
-        input.errorRateThreshold,
-      );
+    async markFailure(input) {
+      await db.transaction(async (tx) => {
+        const existing = await tx
+          .select()
+          .from(pluginLlmRouterCircuits)
+          .where(
+            and(
+              eq(pluginLlmRouterCircuits.pluginId, input.pluginId),
+              eq(pluginLlmRouterCircuits.providerName, input.providerName),
+            ),
+          )
+          .get();
+
+        const requestCount = (existing?.requestCount ?? 0) + 1;
+        const failureCount = (existing?.failureCount ?? 0) + 1;
+        const consecutiveFailures = (existing?.consecutiveFailures ?? 0) + 1;
+        const errorRate = requestCount > 0 ? failureCount / requestCount : 0;
+        const shouldOpen =
+          existing?.state === "half-open" ||
+          consecutiveFailures >= input.failureThreshold ||
+          (requestCount >= input.minimumRequests && errorRate >= input.errorRateThreshold);
+        const nextState: CircuitState = shouldOpen ? "open" : "closed";
+        const timestamp = new Date(input.now).toISOString();
+
+        await tx
+          .insert(pluginLlmRouterCircuits)
+          .values({
+            pluginId: input.pluginId,
+            providerName: input.providerName,
+            state: nextState,
+            consecutiveFailures,
+            consecutiveSuccesses: 0,
+            requestCount,
+            failureCount,
+            openedAt: nextState === "open" ? input.now : null,
+            createdAt: existing?.createdAt ?? timestamp,
+            updatedAt: timestamp,
+          })
+          .onConflictDoUpdate({
+            target: [pluginLlmRouterCircuits.pluginId, pluginLlmRouterCircuits.providerName],
+            set: {
+              state: nextState,
+              consecutiveFailures,
+              consecutiveSuccesses: 0,
+              requestCount,
+              failureCount,
+              openedAt: nextState === "open" ? input.now : null,
+              updatedAt: timestamp,
+            },
+          });
+      });
     },
-    logAttempt(input) {
-      insertLogStmt.run(
-        input.pluginId,
-        input.requestId,
-        input.clientType,
-        input.providerName,
-        input.model,
-        input.statusCode,
-        input.latencyMs,
-        input.failureReason,
-        new Date().toISOString(),
-      );
+    async logAttempt(input) {
+      await db.insert(pluginLlmRouterRequestLogs).values({
+        pluginId: input.pluginId,
+        requestId: input.requestId,
+        clientType: input.clientType,
+        providerName: input.providerName,
+        model: input.model,
+        statusCode: input.statusCode,
+        latencyMs: input.latencyMs,
+        failureReason: input.failureReason,
+        createdAt: new Date().toISOString(),
+      });
     },
   };
 }
@@ -812,12 +754,12 @@ function persistAttemptLog(
   storage: LlmRouterStorage,
   config: LlmRouterConfig,
   entry: AttemptLogEntry,
-): void {
+): Promise<void> {
   if (!config.logging.enabled) {
-    return;
+    return Promise.resolve();
   }
 
-  storage.logAttempt(entry);
+  return storage.logAttempt(entry);
 }
 
 function badRequest(message: string): PluginHandlerResult {
@@ -865,16 +807,4 @@ function getErrorMessage(error: unknown): string {
   }
 
   return String(error);
-}
-
-function parseJsonValue<T>(value: string | null, fallback: T): T {
-  if (value === null) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
 }

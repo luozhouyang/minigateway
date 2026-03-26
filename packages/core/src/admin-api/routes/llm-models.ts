@@ -17,35 +17,43 @@ export function createLlmModelsRoutes(db: DatabaseService) {
   const modelRepo = new LlmModelRepository(db);
   const providerRepo = new LlmProviderRepository(db);
 
-  routes.get("/", zodValidator("query", paginationSchema.merge(llmModelFilterSchema)), async (c) => {
-    const query = c.req.valid("query");
-    const { limit, offset } = query;
-    const providerId = await resolveProviderId(providerRepo, query.providerId, query.providerName);
+  routes.get(
+    "/",
+    zodValidator("query", paginationSchema.merge(llmModelFilterSchema)),
+    async (c) => {
+      const query = c.req.valid("query");
+      const { limit, offset } = query;
+      const providerId = await resolveProviderId(
+        providerRepo,
+        query.providerId,
+        query.providerName,
+      );
 
-    const models = await modelRepo.search({
-      providerId,
-      name: query.name,
-      enabled: query.enabled,
-      limit,
-      offset,
-    });
-    const total = await modelRepo
-      .search({
+      const models = await modelRepo.search({
         providerId,
         name: query.name,
         enabled: query.enabled,
-      })
-      .then((items) => items.length);
-
-    return c.json(
-      listResponse(models.map(toLlmModelResponse), {
         limit,
         offset,
-        total,
-        hasMore: offset + limit < total,
-      }),
-    );
-  });
+      });
+      const total = await modelRepo
+        .search({
+          providerId,
+          name: query.name,
+          enabled: query.enabled,
+        })
+        .then((items) => items.length);
+
+      return c.json(
+        listResponse(models.map(toLlmModelResponse), {
+          limit,
+          offset,
+          total,
+          hasMore: offset + limit < total,
+        }),
+      );
+    },
+  );
 
   routes.post("/", zodValidator("json", createLlmModelSchema), async (c) => {
     const body = c.req.valid("json");

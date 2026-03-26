@@ -65,11 +65,11 @@ describe("PluginManager", () => {
   let routeRepo: RouteRepository;
   let serviceRepo: ServiceRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "plugin-manager-test-"));
     dbPath = join(tempDir, "test.db");
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
-    runMigrations(dbPath);
     manager = new PluginManager(db);
     pluginRepo = new PluginBindingRepository(db);
     routeRepo = new RouteRepository(db);

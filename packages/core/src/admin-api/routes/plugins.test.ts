@@ -8,7 +8,7 @@ describe("Plugins Routes", () => {
   let ctx: TestContext;
 
   beforeEach(async () => {
-    ctx = createTestContext();
+    ctx = await createTestContext();
   });
 
   afterEach(() => {

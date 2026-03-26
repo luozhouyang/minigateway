@@ -1,6 +1,6 @@
 import { test, expect, beforeEach, afterEach, describe } from "vite-plus/test";
-import { DatabaseService } from "./database";
-import { Repository } from "./repository";
+import { DatabaseService } from "./database.js";
+import { Repository } from "./repository.js";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -47,7 +47,7 @@ describe("Repository", () => {
     repo = new TestRepository(db);
 
     // Create test table
-    db.getRawDatabase().exec(`
+    await db.getRawDatabase().executeMultiple(`
       CREATE TABLE IF NOT EXISTS test_items (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,

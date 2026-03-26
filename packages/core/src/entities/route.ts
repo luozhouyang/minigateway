@@ -21,12 +21,7 @@ export class RouteRepository extends Repository<Route> {
   }
 
   async findByServiceId(serviceId: string): Promise<Route[]> {
-    const result = this.db
-      .getDrizzleDb()
-      .select()
-      .from(routes)
-      .where(eq(routes.serviceId, serviceId))
-      .all();
+    const result = await this.db.select().from(routes).where(eq(routes.serviceId, serviceId)).all();
     return result as unknown as Route[];
   }
 }

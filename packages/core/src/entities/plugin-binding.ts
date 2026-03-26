@@ -18,8 +18,7 @@ export class PluginBindingRepository extends Repository<PluginBinding> {
   }
 
   async findByServiceId(serviceId: string): Promise<PluginBinding[]> {
-    const result = this.db
-      .getDrizzleDb()
+    const result = await this.db
       .select()
       .from(plugins)
       .where(eq(plugins.serviceId, serviceId))
@@ -28,18 +27,12 @@ export class PluginBindingRepository extends Repository<PluginBinding> {
   }
 
   async findByRouteId(routeId: string): Promise<PluginBinding[]> {
-    const result = this.db
-      .getDrizzleDb()
-      .select()
-      .from(plugins)
-      .where(eq(plugins.routeId, routeId))
-      .all();
+    const result = await this.db.select().from(plugins).where(eq(plugins.routeId, routeId)).all();
     return result as unknown as PluginBinding[];
   }
 
   async findByConsumerId(consumerId: string): Promise<PluginBinding[]> {
-    const result = this.db
-      .getDrizzleDb()
+    const result = await this.db
       .select()
       .from(plugins)
       .where(eq(plugins.consumerId, consumerId))

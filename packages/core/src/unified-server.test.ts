@@ -12,10 +12,10 @@ describe("unified-server", () => {
   let db: DatabaseService;
   let uiDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(path.join(tmpdir(), "minigateway-unified-server-test-"));
     dbPath = path.join(tempDir, "test.db");
-    runMigrations(dbPath);
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
 
     uiDir = path.join(tempDir, "ui");

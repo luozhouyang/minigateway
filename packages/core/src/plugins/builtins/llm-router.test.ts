@@ -21,10 +21,10 @@ describe("LlmRouterPlugin", () => {
   let providerRepo: LlmProviderRepository;
   let modelRepo: LlmModelRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "llm-router-plugin-test-"));
     dbPath = join(tempDir, "test.db");
-    runMigrations(dbPath);
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     providerRepo = new LlmProviderRepository(db);
     modelRepo = new LlmModelRepository(db);
@@ -40,6 +40,10 @@ describe("LlmRouterPlugin", () => {
     db.close();
     rmSync(tempDir, { recursive: true, force: true });
   });
+
+  function readString(value: unknown): string {
+    return typeof value === "string" ? value : "";
+  }
 
   test("has builtin metadata", () => {
     expect(LlmRouterPlugin.name).toBe("llm-router");
@@ -57,7 +61,7 @@ describe("LlmRouterPlugin", () => {
       receivedPath = new URL(request.url).pathname;
       receivedAuth = request.headers.get("authorization") ?? "";
       const body = JSON.parse(await request.text()) as Record<string, unknown>;
-      receivedModel = String(body.model ?? "");
+      receivedModel = readString(body.model);
 
       return new Response(
         JSON.stringify({

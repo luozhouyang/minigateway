@@ -14,10 +14,10 @@ describe("RateLimitPlugin", () => {
   let db: DatabaseService;
   let pluginStorage: unknown;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "rate-limit-plugin-test-"));
     dbPath = join(tempDir, "test.db");
-    runMigrations(dbPath);
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     pluginStorage = createStorage(db);
   });

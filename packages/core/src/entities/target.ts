@@ -16,8 +16,7 @@ export class TargetRepository extends Repository<Target> {
   }
 
   async findByUpstreamId(upstreamId: string): Promise<Target[]> {
-    const result = this.db
-      .getDrizzleDb()
+    const result = await this.db
       .select()
       .from(targets)
       .where(eq(targets.upstreamId, upstreamId))

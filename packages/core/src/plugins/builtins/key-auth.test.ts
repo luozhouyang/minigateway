@@ -21,7 +21,7 @@ describe("KeyAuthPlugin", () => {
   beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "key-auth-plugin-test-"));
     dbPath = join(tempDir, "test.db");
-    runMigrations(dbPath);
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     consumerRepo = new ConsumerRepository(db);
     credentialRepo = new CredentialRepository(db);

@@ -4,8 +4,8 @@ import { createTestContext, destroyTestContext, type TestContext } from "../test
 describe("LLM Providers Routes", () => {
   let ctx: TestContext;
 
-  beforeEach(() => {
-    ctx = createTestContext();
+  beforeEach(async () => {
+    ctx = await createTestContext();
   });
 
   afterEach(() => {

@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  LLM_CLIENT_PROFILES,
-  LLM_PROVIDER_PROTOCOLS,
-  LLM_PROVIDER_VENDORS,
-} from "./types.js";
+import { LLM_CLIENT_PROFILES, LLM_PROVIDER_PROTOCOLS, LLM_PROVIDER_VENDORS } from "./types.js";
 
 export const ResolvedLlmClientProfileSchema = z.enum(LLM_CLIENT_PROFILES);
 export const LlmClientProfileSchema = z.union([z.literal("auto"), ResolvedLlmClientProfileSchema]);

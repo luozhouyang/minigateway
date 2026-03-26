@@ -14,14 +14,13 @@ describe("CredentialRepository", () => {
   let credentialRepo: CredentialRepository;
   let consumerRepo: ConsumerRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "credential-repo-test-"));
     dbPath = join(tempDir, "test.db");
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     credentialRepo = new CredentialRepository(db);
     consumerRepo = new ConsumerRepository(db);
-
-    runMigrations(dbPath);
   });
 
   afterEach(() => {

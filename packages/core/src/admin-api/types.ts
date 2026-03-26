@@ -5,7 +5,11 @@ import type {
   LlmProviderAuthConfig,
   LlmProviderResourceConfig,
 } from "../plugins/llm/config.js";
-import type { LlmClientProfile, LlmProviderProtocol, LlmProviderVendor } from "../plugins/llm/types.js";
+import type {
+  LlmClientProfile,
+  LlmProviderProtocol,
+  LlmProviderVendor,
+} from "../plugins/llm/types.js";
 
 export type { StatusCode } from "hono/utils/http-status";
 

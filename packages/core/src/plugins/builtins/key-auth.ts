@@ -1,6 +1,9 @@
-import type Database from "better-sqlite3";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Consumer } from "../../entities/types.js";
+import { createDatabase } from "../../storage/database.js";
+import { consumers, credentials } from "../../storage/schema.js";
+import type { DatabaseClient } from "../../storage/types.js";
 import type { PluginContext, PluginDefinition, PluginHandlerResult } from "../types.js";
 
 const keyAuthConfigSchema = z
@@ -30,7 +33,7 @@ interface AuthenticatedCredential {
 }
 
 interface KeyAuthStorage {
-  findByApiKey: (apiKey: string) => AuthenticatedCredential | null;
+  findByApiKey: (apiKey: string) => Promise<AuthenticatedCredential | null>;
 }
 
 export const KeyAuthPlugin: PluginDefinition = {
@@ -50,7 +53,7 @@ export const KeyAuthPlugin: PluginDefinition = {
     }
 
     const storage = getKeyAuthStorage(ctx);
-    const authenticated = storage.findByApiKey(presentedCredential.value);
+    const authenticated = await storage.findByApiKey(presentedCredential.value);
     if (!authenticated) {
       return unauthorized("Invalid API key");
     }
@@ -70,53 +73,51 @@ export const KeyAuthPlugin: PluginDefinition = {
   },
 };
 
-export function createKeyAuthStorage(rawDb: Database.Database): KeyAuthStorage {
-  const findByApiKeyStmt = rawDb.prepare<
-    [string],
-    {
-      credential_id: string;
-      credential_key: string;
-      consumer_id: string;
-      consumer_username: string | null;
-      consumer_custom_id: string | null;
-      consumer_tags: string | null;
-      consumer_created_at: string | null;
-      consumer_updated_at: string | null;
-    }
-  >(
-    `SELECT
-       credentials.id AS credential_id,
-       json_extract(credentials.credential, '$.key') AS credential_key,
-       consumers.id AS consumer_id,
-       consumers.username AS consumer_username,
-       consumers.custom_id AS consumer_custom_id,
-       consumers.tags AS consumer_tags,
-       consumers.created_at AS consumer_created_at,
-       consumers.updated_at AS consumer_updated_at
-     FROM credentials
-     INNER JOIN consumers ON consumers.id = credentials.consumer_id
-     WHERE credentials.credential_type = 'key-auth'
-       AND json_extract(credentials.credential, '$.key') = ?
-     LIMIT 1`,
-  );
+export function createKeyAuthStorage(rawDb: DatabaseClient): KeyAuthStorage {
+  const db = createDatabase(rawDb);
 
   return {
-    findByApiKey(apiKey: string): AuthenticatedCredential | null {
-      const row = findByApiKeyStmt.get(apiKey);
+    async findByApiKey(apiKey: string): Promise<AuthenticatedCredential | null> {
+      const row = await db
+        .select({
+          credentialId: credentials.id,
+          credential: credentials.credential,
+          consumerId: consumers.id,
+          consumerUsername: consumers.username,
+          consumerCustomId: consumers.customId,
+          consumerTags: consumers.tags,
+          consumerCreatedAt: consumers.createdAt,
+          consumerUpdatedAt: consumers.updatedAt,
+        })
+        .from(credentials)
+        .innerJoin(consumers, eq(consumers.id, credentials.consumerId))
+        .where(
+          and(
+            eq(credentials.credentialType, "key-auth"),
+            sql`json_extract(${credentials.credential}, '$.key') = ${apiKey}`,
+          ),
+        )
+        .get();
+
       if (!row) {
         return null;
       }
 
+      const key = row.credential?.key;
+      if (typeof key !== "string") {
+        return null;
+      }
+
       return {
-        credentialId: row.credential_id,
-        key: row.credential_key,
+        credentialId: row.credentialId,
+        key,
         consumer: {
-          id: row.consumer_id,
-          username: row.consumer_username,
-          customId: row.consumer_custom_id,
-          tags: parseTags(row.consumer_tags),
-          createdAt: row.consumer_created_at,
-          updatedAt: row.consumer_updated_at,
+          id: row.consumerId,
+          username: row.consumerUsername,
+          customId: row.consumerCustomId,
+          tags: row.consumerTags ?? [],
+          createdAt: row.consumerCreatedAt,
+          updatedAt: row.consumerUpdatedAt,
         },
       };
     },
@@ -172,23 +173,6 @@ function writeAuthenticatedConsumerHeaders(
     ctx.request.headers.set("x-consumer-custom-id", authenticated.consumer.customId);
   } else {
     ctx.request.headers.delete("x-consumer-custom-id");
-  }
-}
-
-function parseTags(input: string | null): string[] {
-  if (!input) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(input) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter((value): value is string => typeof value === "string");
-  } catch {
-    return [];
   }
 }
 

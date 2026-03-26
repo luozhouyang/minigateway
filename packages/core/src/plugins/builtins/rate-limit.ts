@@ -1,5 +1,8 @@
-import type Database from "better-sqlite3";
+import { and, eq, lte } from "drizzle-orm";
 import { z } from "zod";
+import { createDatabase } from "../../storage/database.js";
+import { pluginRateLimitCounters } from "../../storage/schema.js";
+import type { DatabaseClient } from "../../storage/types.js";
 import type { PluginContext, PluginDefinition, PluginHandlerResult } from "../types.js";
 
 const rateLimitConfigSchema = z.object({
@@ -23,7 +26,7 @@ interface RateLimitStorage {
     identifier: string;
     now: number;
     windowMs: number;
-  }): RateLimitCounter;
+  }): Promise<RateLimitCounter>;
 }
 
 export const RateLimitPlugin: PluginDefinition = {
@@ -51,13 +54,13 @@ export const RateLimitPlugin: PluginDefinition = {
   ],
   createStorage: (ctx) => createRateLimitStorage(ctx.rawDb),
 
-  onAccess: (ctx: PluginContext): PluginHandlerResult | void => {
+  onAccess: async (ctx: PluginContext): Promise<PluginHandlerResult | void> => {
     const config = normalizeConfig(ctx.config);
     const storage = getRateLimitStorage(ctx);
     const now = Date.now();
     const windowMs = config.window * 1000;
     const identifier = getClientId(ctx, config);
-    const counter = storage.increment({
+    const counter = await storage.increment({
       pluginId: ctx.plugin.id,
       identifier,
       now,
@@ -114,69 +117,60 @@ export const RateLimitPlugin: PluginDefinition = {
   },
 };
 
-export function createRateLimitStorage(rawDb: Database.Database): RateLimitStorage {
-  const selectCounterStmt = rawDb.prepare<
-    [string, string],
-    {
-      count: number;
-      window_started_at: number;
-      expires_at: number;
-    }
-  >(
-    `SELECT count, window_started_at, expires_at
-       FROM plugin_rate_limit_counters
-      WHERE plugin_id = ?
-        AND identifier = ?`,
-  );
-  const deleteExpiredStmt = rawDb.prepare<[number]>(
-    "DELETE FROM plugin_rate_limit_counters WHERE expires_at <= ?",
-  );
-  const upsertCounterStmt = rawDb.prepare<[string, string, number, number, number]>(
-    `INSERT INTO plugin_rate_limit_counters (
-       plugin_id,
-       identifier,
-       count,
-       window_started_at,
-       expires_at
-     ) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(plugin_id, identifier) DO UPDATE SET
-       count = excluded.count,
-       window_started_at = excluded.window_started_at,
-       expires_at = excluded.expires_at`,
-  );
-  const updateCountStmt = rawDb.prepare<[number, string, string]>(
-    `UPDATE plugin_rate_limit_counters
-        SET count = ?
-      WHERE plugin_id = ?
-        AND identifier = ?`,
-  );
-
-  const increment = rawDb.transaction(
-    (pluginId: string, identifier: string, now: number, windowMs: number): RateLimitCounter => {
-      deleteExpiredStmt.run(now);
-
-      const existing = selectCounterStmt.get(pluginId, identifier);
-      if (!existing) {
-        const resetAt = now + windowMs;
-        upsertCounterStmt.run(pluginId, identifier, 1, now, resetAt);
-        return {
-          count: 1,
-          resetAt,
-        };
-      }
-
-      const nextCount = existing.count + 1;
-      updateCountStmt.run(nextCount, pluginId, identifier);
-      return {
-        count: nextCount,
-        resetAt: existing.expires_at,
-      };
-    },
-  );
+export function createRateLimitStorage(rawDb: DatabaseClient): RateLimitStorage {
+  const db = createDatabase(rawDb);
 
   return {
-    increment(input) {
-      return increment(input.pluginId, input.identifier, input.now, input.windowMs);
+    async increment(input): Promise<RateLimitCounter> {
+      return db.transaction(async (tx) => {
+        await tx
+          .delete(pluginRateLimitCounters)
+          .where(lte(pluginRateLimitCounters.expiresAt, input.now));
+
+        const existing = await tx
+          .select()
+          .from(pluginRateLimitCounters)
+          .where(
+            and(
+              eq(pluginRateLimitCounters.pluginId, input.pluginId),
+              eq(pluginRateLimitCounters.identifier, input.identifier),
+            ),
+          )
+          .get();
+
+        if (!existing) {
+          const resetAt = input.now + input.windowMs;
+          await tx.insert(pluginRateLimitCounters).values({
+            pluginId: input.pluginId,
+            identifier: input.identifier,
+            count: 1,
+            windowStartedAt: input.now,
+            expiresAt: resetAt,
+          });
+          return {
+            count: 1,
+            resetAt,
+          };
+        }
+
+        const nextCount = existing.count + 1;
+        await tx
+          .update(pluginRateLimitCounters)
+          .set({
+            count: nextCount,
+          })
+          .where(
+            and(
+              eq(pluginRateLimitCounters.pluginId, input.pluginId),
+              eq(pluginRateLimitCounters.identifier, input.identifier),
+            ),
+          );
+
+        return {
+          count: nextCount,
+          resetAt: existing.expiresAt,
+        };
+      });
     },
   };
 }

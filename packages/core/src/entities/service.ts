@@ -1,7 +1,7 @@
 import { DatabaseService } from "../storage/database.js";
 import { Repository } from "../storage/repository.js";
 import { services, type CreateServiceInput, type Service } from "../storage/schema.js";
-import { eq, like } from "drizzle-orm";
+import { and, eq, like, type SQL } from "drizzle-orm";
 
 export class ServiceRepository extends Repository<Service> {
   constructor(db: DatabaseService) {
@@ -26,8 +26,7 @@ export class ServiceRepository extends Repository<Service> {
     limit?: number;
     offset?: number;
   }): Promise<Service[]> {
-    const conditions = [];
-    const db = this.db.getDrizzleDb();
+    const conditions: SQL[] = [];
 
     if (options.name) {
       conditions.push(like(services.name, `%${options.name}%`));
@@ -36,13 +35,10 @@ export class ServiceRepository extends Repository<Service> {
       conditions.push(eq(services.protocol, options.protocol));
     }
 
-    let query = db.select().from(services) as any;
+    let query = this.db.select().from(services) as any;
 
     if (conditions.length > 0) {
-      query = query.where(conditions[0]);
-      for (let i = 1; i < conditions.length; i++) {
-        query = query.and(conditions[i]);
-      }
+      query = query.where(and(...conditions));
     }
 
     if (options.limit) {
@@ -52,6 +48,6 @@ export class ServiceRepository extends Repository<Service> {
       query = query.offset(options.offset);
     }
 
-    return query.all() as unknown as Service[];
+    return (await query.all()) as unknown as Service[];
   }
 }

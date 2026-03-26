@@ -18,16 +18,15 @@ describe("PluginBindingRepository", () => {
   let routeRepo: RouteRepository;
   let consumerRepo: ConsumerRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "plugin-binding-repo-test-"));
     dbPath = join(tempDir, "test.db");
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     pluginRepo = new PluginBindingRepository(db);
     serviceRepo = new ServiceRepository(db);
     routeRepo = new RouteRepository(db);
     consumerRepo = new ConsumerRepository(db);
-
-    runMigrations(dbPath);
   });
 
   afterEach(() => {

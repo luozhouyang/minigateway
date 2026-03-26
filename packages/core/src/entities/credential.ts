@@ -16,18 +16,16 @@ export class CredentialRepository extends Repository<Credential> {
   }
 
   async findByConsumerId(consumerId: string): Promise<Credential[]> {
-    const result = this.db
-      .getDrizzleDb()
+    const result = await this.db
       .select()
       .from(credentials)
       .where(eq(credentials.consumerId, consumerId))
       .all();
-    return result as unknown as Credential[];
+    return result as Credential[];
   }
 
   async findKeyAuthByKey(key: string): Promise<Credential | null> {
-    const result = this.db
-      .getDrizzleDb()
+    const result = await this.db
       .select()
       .from(credentials)
       .where(

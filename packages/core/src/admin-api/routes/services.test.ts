@@ -7,8 +7,8 @@ import type { TestContext } from "../test-utils.js";
 describe("Services Routes", () => {
   let ctx: TestContext;
 
-  beforeEach(() => {
-    ctx = createTestContext();
+  beforeEach(async () => {
+    ctx = await createTestContext();
   });
 
   afterEach(() => {

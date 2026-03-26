@@ -22,17 +22,23 @@ describe("plugin migration infrastructure", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("registers builtin plugin bundles and migrations during startup", () => {
-    runMigrations(dbPath);
+  test("registers builtin plugin bundles and migrations during startup", async () => {
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
 
     const rawDb = db.getRawDatabase();
-    const bundle = rawDb
-      .prepare("SELECT name, version FROM plugin_bundles WHERE name = ?")
-      .get("rate-limit") as { name: string; version: string } | undefined;
-    const migration = rawDb
-      .prepare("SELECT migration_id FROM plugin_migrations WHERE plugin_name = ?")
-      .get("rate-limit") as { migration_id: string } | undefined;
+    const bundle = (
+      await rawDb.execute({
+        sql: "SELECT name, version FROM plugin_bundles WHERE name = ?",
+        args: ["rate-limit"],
+      })
+    ).rows[0] as unknown as { name: string; version: string } | undefined;
+    const migration = (
+      await rawDb.execute({
+        sql: "SELECT migration_id FROM plugin_migrations WHERE plugin_name = ?",
+        args: ["rate-limit"],
+      })
+    ).rows[0] as unknown as { migration_id: string } | undefined;
 
     expect(bundle).toMatchObject({
       name: "rate-limit",
@@ -43,7 +49,7 @@ describe("plugin migration infrastructure", () => {
     });
   });
 
-  test("applies custom plugin migrations passed to runMigrations", () => {
+  test("applies custom plugin migrations passed to runMigrations", async () => {
     const customPlugin: PluginDefinition = {
       name: "custom-db-plugin",
       version: "1.0.0",
@@ -61,20 +67,23 @@ describe("plugin migration infrastructure", () => {
       ],
     };
 
-    runMigrations(dbPath, {
+    await runMigrations(dbPath, {
       plugins: [customPlugin],
     });
     db = new DatabaseService(dbPath);
 
     const rawDb = db.getRawDatabase();
-    const table = rawDb
-      .prepare(
+    const table = (
+      await rawDb.execute(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'plugin_custom_db_plugin_entries'",
       )
-      .get() as { name: string } | undefined;
-    const migration = rawDb
-      .prepare("SELECT migration_id FROM plugin_migrations WHERE plugin_name = ?")
-      .get("custom-db-plugin") as { migration_id: string } | undefined;
+    ).rows[0] as unknown as { name: string } | undefined;
+    const migration = (
+      await rawDb.execute({
+        sql: "SELECT migration_id FROM plugin_migrations WHERE plugin_name = ?",
+        args: ["custom-db-plugin"],
+      })
+    ).rows[0] as unknown as { migration_id: string } | undefined;
 
     expect(table).toMatchObject({
       name: "plugin_custom_db_plugin_entries",

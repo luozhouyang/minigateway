@@ -1,57 +1,59 @@
+import { and, eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import type Database from "better-sqlite3";
+import { createDatabase } from "../storage/database.js";
+import { pluginBundles, pluginMigrations } from "../storage/schema.js";
+import type { DatabaseClient } from "../storage/types.js";
 import { createPluginStorageContext } from "./storage-context.js";
 import type { PluginDefinition, PluginMigration } from "./types.js";
 
-export function runPluginMigrations(rawDb: Database.Database, plugins: PluginDefinition[]): void {
-  ensurePluginRuntimeTables(rawDb);
+export async function runPluginMigrations(
+  rawDb: DatabaseClient,
+  plugins: PluginDefinition[],
+): Promise<void> {
+  await ensurePluginRuntimeTables(rawDb);
 
-  const appliedMigrationStmt = rawDb.prepare<
-    {
-      plugin_name: string;
-      migration_id: string;
-    },
-    { checksum: string }
-  >(
-    `SELECT checksum
-       FROM plugin_migrations
-      WHERE plugin_name = @plugin_name
-        AND migration_id = @migration_id`,
-  );
-  const insertAppliedMigrationStmt = rawDb.prepare(
-    `INSERT INTO plugin_migrations (plugin_name, migration_id, checksum, applied_at)
-          VALUES (?, ?, ?, ?)`,
-  );
-  const upsertBundleStmt = rawDb.prepare(
-    `INSERT INTO plugin_bundles (name, version, checksum, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(name) DO UPDATE SET
-       version = excluded.version,
-       checksum = excluded.checksum,
-       updated_at = excluded.updated_at`,
-  );
-
+  const db = createDatabase(rawDb);
   const sortedPlugins = [...plugins].sort((a, b) => a.name.localeCompare(b.name));
 
   for (const plugin of sortedPlugins) {
     const now = new Date().toISOString();
-    upsertBundleStmt.run(
-      plugin.name,
-      plugin.version,
-      getPluginDefinitionChecksum(plugin),
-      now,
-      now,
-    );
+    const pluginChecksum = getPluginDefinitionChecksum(plugin);
+
+    await db
+      .insert(pluginBundles)
+      .values({
+        name: plugin.name,
+        version: plugin.version,
+        checksum: pluginChecksum,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: pluginBundles.name,
+        set: {
+          version: plugin.version,
+          checksum: pluginChecksum,
+          updatedAt: now,
+        },
+      });
 
     const storageContext = createPluginStorageContext(rawDb, plugin);
     const migrations = [...(plugin.migrations ?? [])].sort((a, b) => a.id.localeCompare(b.id));
 
     for (const migration of migrations) {
       const checksum = getPluginMigrationChecksum(migration);
-      const applied = appliedMigrationStmt.get({
-        plugin_name: plugin.name,
-        migration_id: migration.id,
-      });
+      const applied = await db
+        .select({
+          checksum: pluginMigrations.checksum,
+        })
+        .from(pluginMigrations)
+        .where(
+          and(
+            eq(pluginMigrations.pluginName, plugin.name),
+            eq(pluginMigrations.migrationId, migration.id),
+          ),
+        )
+        .get();
 
       if (applied) {
         if (applied.checksum !== checksum) {
@@ -60,15 +62,13 @@ export function runPluginMigrations(rawDb: Database.Database, plugins: PluginDef
         continue;
       }
 
-      rawDb.transaction(() => {
-        applyPluginMigration(storageContext, migration);
-        insertAppliedMigrationStmt.run(
-          plugin.name,
-          migration.id,
-          checksum,
-          new Date().toISOString(),
-        );
-      })();
+      await applyPluginMigration(storageContext, migration);
+      await db.insert(pluginMigrations).values({
+        pluginName: plugin.name,
+        migrationId: migration.id,
+        checksum,
+        appliedAt: new Date().toISOString(),
+      });
     }
   }
 }
@@ -96,20 +96,20 @@ export function getPluginMigrationChecksum(migration: PluginMigration): string {
   return createHash("sha256").update(`${migration.id}:${payload}`).digest("hex");
 }
 
-function applyPluginMigration(
+async function applyPluginMigration(
   storageContext: ReturnType<typeof createPluginStorageContext>,
   migration: PluginMigration,
-): void {
+): Promise<void> {
   if (typeof migration.up === "string") {
-    storageContext.exec(migration.up);
+    await storageContext.exec(migration.up);
     return;
   }
 
-  migration.up(storageContext);
+  await migration.up(storageContext);
 }
 
-function ensurePluginRuntimeTables(rawDb: Database.Database): void {
-  rawDb.exec(`
+async function ensurePluginRuntimeTables(rawDb: DatabaseClient): Promise<void> {
+  await rawDb.executeMultiple(`
     CREATE TABLE IF NOT EXISTS plugin_bundles (
       name text PRIMARY KEY NOT NULL,
       version text NOT NULL,

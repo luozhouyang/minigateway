@@ -9,7 +9,7 @@ describe("Credentials Routes", () => {
   let consumerId: string;
 
   beforeEach(async () => {
-    ctx = createTestContext();
+    ctx = await createTestContext();
 
     // Create a consumer for the tests
     const createResponse = await ctx.app.request("/admin/consumers", {

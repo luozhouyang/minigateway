@@ -1,9 +1,9 @@
 // Plugin system type definitions
 
-import type Database from "better-sqlite3";
 import type { ZodType } from "zod";
 import type { Consumer, Route, Service, Target } from "../entities/types.js";
 import type { DatabaseService } from "../storage/database.js";
+import type { DatabaseClient, DatabaseTransaction } from "../storage/types.js";
 import type { AppLogger } from "../utils/debug-logger.js";
 import type { HttpRequestSnapshot, HttpRequestState, HttpResponseState } from "./runtime.js";
 import type { LlmRouterPluginConfig } from "./llm/config.js";
@@ -72,15 +72,15 @@ export type PluginHandler = (
 export interface PluginStorageContext {
   pluginName: string;
   pluginVersion: string;
-  rawDb: Database.Database;
-  exec: (sql: string) => void;
-  transaction: <T>(fn: () => T) => T;
+  rawDb: DatabaseClient;
+  exec: (sql: string) => Promise<void>;
+  transaction: <T>(fn: (tx: DatabaseTransaction) => Promise<T> | T) => Promise<T>;
 }
 
 export interface PluginMigration {
   id: string;
   checksum?: string;
-  up: string | ((ctx: PluginStorageContext) => void);
+  up: string | ((ctx: PluginStorageContext) => Promise<void> | void);
 }
 
 export interface PluginConfigNormalizationContext {

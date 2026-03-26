@@ -1,11 +1,19 @@
-import { sqliteTable, text, integer, index, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  index,
+  primaryKey,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
+import type { LlmProviderAuthConfig, LlmProviderResourceConfig } from "../plugins/llm/config.js";
 import type {
-  LlmProviderAuthConfig,
-  LlmProviderResourceConfig,
-} from "../plugins/llm/config.js";
-import type { LlmClientProfile, LlmProviderProtocol, LlmProviderVendor } from "../plugins/llm/types.js";
+  LlmClientProfile,
+  LlmProviderProtocol,
+  LlmProviderVendor,
+} from "../plugins/llm/types.js";
 
 // Utility function: generate random ID
 export function randomId(): string {
@@ -294,6 +302,75 @@ export const pluginMigrations = sqliteTable(
       columns: [table.pluginName, table.migrationId],
     }),
     idxPluginMigrationsPluginName: index("idx_plugin_migrations_plugin_name").on(table.pluginName),
+  }),
+);
+
+export const pluginRateLimitCounters = sqliteTable(
+  "plugin_rate_limit_counters",
+  {
+    pluginId: text("plugin_id").notNull(),
+    identifier: text("identifier").notNull(),
+    count: integer("count").notNull(),
+    windowStartedAt: integer("window_started_at").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.pluginId, table.identifier],
+    }),
+    idxPluginRateLimitCountersExpiresAt: index("idx_plugin_rate_limit_counters_expires_at").on(
+      table.expiresAt,
+    ),
+  }),
+);
+
+export const pluginLlmRouterCircuits = sqliteTable(
+  "plugin_llm_router_circuits",
+  {
+    pluginId: text("plugin_id").notNull(),
+    providerName: text("provider_name").notNull(),
+    state: text("state").$type<"closed" | "open" | "half-open">().notNull(),
+    consecutiveFailures: integer("consecutive_failures").notNull(),
+    consecutiveSuccesses: integer("consecutive_successes").notNull(),
+    requestCount: integer("request_count").notNull(),
+    failureCount: integer("failure_count").notNull(),
+    openedAt: integer("opened_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.pluginId, table.providerName],
+    }),
+    idxPluginLlmRouterCircuitsState: index("idx_plugin_llm_router_circuits_state").on(
+      table.state,
+      table.updatedAt,
+    ),
+  }),
+);
+
+export const pluginLlmRouterRequestLogs = sqliteTable(
+  "plugin_llm_router_request_logs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    pluginId: text("plugin_id").notNull(),
+    requestId: text("request_id").notNull(),
+    clientType: text("client_type").notNull(),
+    providerName: text("provider_name").notNull(),
+    model: text("model"),
+    statusCode: integer("status_code"),
+    latencyMs: integer("latency_ms").notNull(),
+    failureReason: text("failure_reason"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    idxPluginLlmRouterRequestLogsRequestId: index(
+      "idx_plugin_llm_router_request_logs_request_id",
+    ).on(table.requestId, table.createdAt),
+    idxPluginLlmRouterRequestLogsProvider: index("idx_plugin_llm_router_request_logs_provider").on(
+      table.providerName,
+      table.createdAt,
+    ),
   }),
 );
 

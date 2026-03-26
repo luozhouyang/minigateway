@@ -1,4 +1,4 @@
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, like, type SQL } from "drizzle-orm";
 import { DatabaseService } from "../storage/database.js";
 import { Repository } from "../storage/repository.js";
 import { llmModels, type CreateLlmModelInput, type LlmModel } from "../storage/schema.js";
@@ -18,7 +18,12 @@ export class LlmModelRepository extends Repository<LlmModel> {
   }
 
   async findByProviderAndName(providerId: string, name: string): Promise<LlmModel | null> {
-    return this.findFirst(and(eq(llmModels.providerId, providerId), eq(llmModels.name, name)));
+    const result = await this.db
+      .select()
+      .from(llmModels)
+      .where(and(eq(llmModels.providerId, providerId), eq(llmModels.name, name)))
+      .get();
+    return (result as unknown as LlmModel) || null;
   }
 
   async search(options: {
@@ -28,8 +33,7 @@ export class LlmModelRepository extends Repository<LlmModel> {
     limit?: number;
     offset?: number;
   }): Promise<LlmModel[]> {
-    const conditions = [];
-    const db = this.db.getDrizzleDb();
+    const conditions: SQL[] = [];
 
     if (options.providerId) {
       conditions.push(eq(llmModels.providerId, options.providerId));
@@ -41,7 +45,7 @@ export class LlmModelRepository extends Repository<LlmModel> {
       conditions.push(eq(llmModels.enabled, options.enabled));
     }
 
-    let query = db.select().from(llmModels) as any;
+    let query = this.db.select().from(llmModels) as any;
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
@@ -52,6 +56,6 @@ export class LlmModelRepository extends Repository<LlmModel> {
       query = query.offset(options.offset);
     }
 
-    return query.all() as unknown as LlmModel[];
+    return (await query.all()) as unknown as LlmModel[];
   }
 }

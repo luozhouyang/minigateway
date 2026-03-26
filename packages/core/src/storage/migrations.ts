@@ -1,12 +1,12 @@
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import Database from "better-sqlite3";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createClient } from "@libsql/client";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import * as fs from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PluginLoader } from "../plugins/plugin-loader.js";
 import { runPluginMigrations } from "../plugins/plugin-migration-runner.js";
 import type { PluginDefinition } from "../plugins/types.js";
+import { createDatabase } from "./database.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -20,9 +20,9 @@ export interface RunMigrationsOptions {
  * - Source: src/storage/ -> ../../drizzle
  * - Bundled: dist/storage/ -> ../drizzle
  */
-export function runMigrations(dbPath: string, options?: RunMigrationsOptions): void {
-  const client = new Database(dbPath);
-  const db = drizzle(client);
+export async function runMigrations(dbPath: string, options?: RunMigrationsOptions): Promise<void> {
+  const client = createClient({ url: `file:${dbPath}` });
+  const db = createDatabase(client);
 
   // Try bundled path first (dist/storage -> ../drizzle), then source path (src/storage -> ../../drizzle)
   let migrationsFolder = join(__dirname, "../drizzle");
@@ -37,10 +37,10 @@ export function runMigrations(dbPath: string, options?: RunMigrationsOptions): v
   }
 
   try {
-    migrate(db, { migrationsFolder });
+    await migrate(db, { migrationsFolder });
 
     const pluginDefinitions = options?.plugins ?? new PluginLoader().listBuiltinDefinitions();
-    runPluginMigrations(client, pluginDefinitions);
+    await runPluginMigrations(client, pluginDefinitions);
   } finally {
     client.close();
   }

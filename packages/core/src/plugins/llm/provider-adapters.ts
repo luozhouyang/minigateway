@@ -1,10 +1,5 @@
-import {
-  applyNormalizedModel,
-} from "./normalized-request.js";
-import type {
-  LlmModelResourceConfig,
-  LlmProviderResourceConfig,
-} from "./config.js";
+import { applyNormalizedModel } from "./normalized-request.js";
+import type { LlmModelResourceConfig, LlmProviderResourceConfig } from "./config.js";
 import type {
   LlmInboundProtocol,
   LlmProviderProtocol,

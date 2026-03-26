@@ -1,4 +1,4 @@
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, like, type SQL } from "drizzle-orm";
 import { DatabaseService } from "../storage/database.js";
 import { Repository } from "../storage/repository.js";
 import { llmProviders, type CreateLlmProviderInput, type LlmProvider } from "../storage/schema.js";
@@ -32,8 +32,7 @@ export class LlmProviderRepository extends Repository<LlmProvider> {
     limit?: number;
     offset?: number;
   }): Promise<LlmProvider[]> {
-    const conditions = [];
-    const db = this.db.getDrizzleDb();
+    const conditions: SQL[] = [];
 
     if (options.name) {
       conditions.push(like(llmProviders.name, `%${options.name}%`));
@@ -48,7 +47,7 @@ export class LlmProviderRepository extends Repository<LlmProvider> {
       conditions.push(eq(llmProviders.enabled, options.enabled));
     }
 
-    let query = db.select().from(llmProviders) as any;
+    let query = this.db.select().from(llmProviders) as any;
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
@@ -59,6 +58,6 @@ export class LlmProviderRepository extends Repository<LlmProvider> {
       query = query.offset(options.offset);
     }
 
-    return query.all() as unknown as LlmProvider[];
+    return (await query.all()) as unknown as LlmProvider[];
   }
 }

@@ -20,11 +20,11 @@ describe("ProxyEngine", () => {
   let upstreamRepo: UpstreamRepository;
   let targetRepo: TargetRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "proxy-engine-test-"));
     dbPath = join(tempDir, "test.db");
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
-    runMigrations(dbPath);
     engine = new ProxyEngine(db);
     serviceRepo = new ServiceRepository(db);
     routeRepo = new RouteRepository(db);

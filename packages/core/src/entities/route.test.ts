@@ -14,14 +14,13 @@ describe("RouteRepository", () => {
   let routeRepo: RouteRepository;
   let serviceRepo: ServiceRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "route-repo-test-"));
     dbPath = join(tempDir, "test.db");
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     routeRepo = new RouteRepository(db);
     serviceRepo = new ServiceRepository(db);
-
-    runMigrations(dbPath);
   });
 
   afterEach(() => {

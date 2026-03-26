@@ -102,25 +102,29 @@ export function createLlmProvidersRoutes(db: DatabaseService) {
     );
   });
 
-  routes.post("/:id/models", zodValidator("json", createLlmModelSchema.omit({ providerId: true })), async (c) => {
-    const { id } = c.req.param();
-    const provider = await providerRepo.findById(id);
-    if (!provider) {
-      throw ApiError.notFound("LLM provider");
-    }
+  routes.post(
+    "/:id/models",
+    zodValidator("json", createLlmModelSchema.omit({ providerId: true })),
+    async (c) => {
+      const { id } = c.req.param();
+      const provider = await providerRepo.findById(id);
+      if (!provider) {
+        throw ApiError.notFound("LLM provider");
+      }
 
-    const body = c.req.valid("json");
-    const model = await modelRepo.create({
-      providerId: id,
-      name: body.name,
-      upstreamModel: body.upstreamModel,
-      enabled: body.enabled ?? true,
-      metadata: body.metadata ?? {},
-      tags: body.tags ?? [],
-    });
+      const body = c.req.valid("json");
+      const model = await modelRepo.create({
+        providerId: id,
+        name: body.name,
+        upstreamModel: body.upstreamModel,
+        enabled: body.enabled ?? true,
+        metadata: body.metadata ?? {},
+        tags: body.tags ?? [],
+      });
 
-    return c.json(successResponse(toLlmModelResponse(model)), 201);
-  });
+      return c.json(successResponse(toLlmModelResponse(model)), 201);
+    },
+  );
 
   routes.get("/:id", async (c) => {
     const { id } = c.req.param();

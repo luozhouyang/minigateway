@@ -9,7 +9,7 @@ describe("Targets Routes", () => {
   let upstreamId: string;
 
   beforeEach(async () => {
-    ctx = createTestContext();
+    ctx = await createTestContext();
 
     // Create an upstream for the tests
     const createResponse = await ctx.app.request("/admin/upstreams", {

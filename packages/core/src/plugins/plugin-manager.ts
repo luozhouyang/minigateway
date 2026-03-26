@@ -238,8 +238,8 @@ export class PluginManager {
       return this.allEnabledInstancesCache;
     }
 
-    const db = this.db.getDrizzleDb();
-    const rows = db.select().from(plugins).where(eq(plugins.enabled, true)).all();
+    const db = this.db.getDatabase();
+    const rows = await db.select().from(plugins).where(eq(plugins.enabled, true)).all();
     const instances = await Promise.all(rows.map((row) => this.bindingToInstance(row)));
     this.allEnabledInstancesCache = instances;
     return instances;

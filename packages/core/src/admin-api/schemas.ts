@@ -1,10 +1,7 @@
 // Zod Schemas for Admin API Validation
 
 import { z } from "zod";
-import {
-  LlmModelResourceSchema,
-  LlmProviderResourceSchema,
-} from "../plugins/llm/config.js";
+import { LlmModelResourceSchema, LlmProviderResourceSchema } from "../plugins/llm/config.js";
 import { LLM_PROVIDER_PROTOCOLS, LLM_PROVIDER_VENDORS } from "../plugins/llm/types.js";
 
 const queryBooleanSchema = z.preprocess((value) => {

@@ -12,13 +12,12 @@ describe("UpstreamRepository", () => {
   let db: DatabaseService;
   let repo: UpstreamRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "upstream-repo-test-"));
     dbPath = join(tempDir, "test.db");
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     repo = new UpstreamRepository(db);
-
-    runMigrations(dbPath);
   });
 
   afterEach(() => {

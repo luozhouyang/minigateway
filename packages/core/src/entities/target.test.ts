@@ -14,14 +14,13 @@ describe("TargetRepository", () => {
   let targetRepo: TargetRepository;
   let upstreamRepo: UpstreamRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "target-repo-test-"));
     dbPath = join(tempDir, "test.db");
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     targetRepo = new TargetRepository(db);
     upstreamRepo = new UpstreamRepository(db);
-
-    runMigrations(dbPath);
   });
 
   afterEach(() => {

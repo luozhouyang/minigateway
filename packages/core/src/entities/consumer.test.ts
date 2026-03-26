@@ -12,13 +12,12 @@ describe("ConsumerRepository", () => {
   let db: DatabaseService;
   let repo: ConsumerRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "consumer-repo-test-"));
     dbPath = join(tempDir, "test.db");
+    await runMigrations(dbPath);
     db = new DatabaseService(dbPath);
     repo = new ConsumerRepository(db);
-
-    runMigrations(dbPath);
   });
 
   afterEach(() => {
