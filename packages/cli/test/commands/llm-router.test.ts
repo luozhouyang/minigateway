@@ -43,6 +43,18 @@ describe("llm-router command", () => {
       .map(([, body]) => body as Record<string, unknown>);
   }
 
+  function getPluginScopeId(body: Record<string, unknown>): string {
+    if (typeof body.routeId === "string") {
+      return body.routeId;
+    }
+
+    if (typeof body.serviceId === "string") {
+      return body.serviceId;
+    }
+
+    return "global";
+  }
+
   it("initializes the managed LLM router resources", async () => {
     mockGet.mockImplementation(async (path: string) => {
       const url = parseAdminPath(path);
@@ -73,7 +85,7 @@ describe("llm-router command", () => {
           };
         case "/plugins":
           return {
-            id: `plugin:${body.name as string}:${String(body.routeId ?? body.serviceId ?? "global")}`,
+            id: `plugin:${body.name as string}:${getPluginScopeId(body)}`,
             name: body.name,
             serviceId: body.serviceId ?? null,
             routeId: body.routeId ?? null,

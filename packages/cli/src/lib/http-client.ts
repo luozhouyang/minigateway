@@ -11,7 +11,7 @@ export class HttpClient {
     this.authToken = authToken;
   }
 
-  static async create(): Promise<HttpClient> {
+  static async create(this: void): Promise<HttpClient> {
     const config = await ConfigService.load();
     const baseUrl = config.apiUrl || "http://localhost:8080/admin";
     const authToken = config.authToken;
