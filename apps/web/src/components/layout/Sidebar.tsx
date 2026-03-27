@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Server, Route, Network, Users, Plug, Settings } from "lucide-react";
+import { LayoutDashboard, Server, Route, Network, Users, Plug, Settings, Bot } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
@@ -9,6 +9,7 @@ const navigation = [
   { name: "Upstreams", to: "/upstreams", icon: Network },
   { name: "Consumers", to: "/consumers", icon: Users },
   { name: "Plugins", to: "/plugins", icon: Plug },
+  { name: "LLM", to: "/llm", icon: Bot },
 ];
 
 export default function Sidebar() {

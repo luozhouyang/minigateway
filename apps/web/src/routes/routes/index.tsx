@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import {
+  ScopedPluginDialog,
+  type ScopedPluginTarget,
+} from "@/components/plugins/ScopedPluginDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -34,7 +38,7 @@ import {
   stringifyJson,
 } from "@/lib/dashboard-utils";
 import { toast } from "sonner";
-import { Pencil, Plus, RefreshCw, Route as RouteIcon, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Plug, RefreshCw, Route as RouteIcon, Search, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/routes/")({
   component: RoutesPage,
@@ -88,6 +92,8 @@ function RoutesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<RouteConfig | null>(null);
   const [formState, setFormState] = useState<RouteFormState>(EMPTY_FORM);
+  const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
+  const [pluginTarget, setPluginTarget] = useState<ScopedPluginTarget | null>(null);
 
   useEffect(() => {
     void loadData();
@@ -144,6 +150,15 @@ function RoutesPage() {
       tags: joinCommaSeparated(route.tags),
     });
     setDialogOpen(true);
+  }
+
+  function openAddPluginDialog(route: RouteConfig) {
+    setPluginTarget({
+      id: route.id,
+      kind: "route",
+      name: route.name,
+    });
+    setPluginDialogOpen(true);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -329,7 +344,7 @@ function RoutesPage() {
                   <TableHead>Matchers</TableHead>
                   <TableHead>Flags</TableHead>
                   <TableHead>Updated</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
+                  <TableHead className="w-[220px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -372,7 +387,16 @@ function RoutesPage() {
                       {formatTimestamp(route.updatedAt, settings.showRelativeTimes)}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openAddPluginDialog(route)}
+                        >
+                          <Plug className="h-4 w-4" />
+                          Add Plugin
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
@@ -589,6 +613,17 @@ function RoutesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ScopedPluginDialog
+        open={pluginDialogOpen}
+        onOpenChange={(open) => {
+          setPluginDialogOpen(open);
+          if (!open) {
+            setPluginTarget(null);
+          }
+        }}
+        target={pluginTarget}
+      />
     </div>
   );
 }

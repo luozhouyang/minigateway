@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import {
+  ScopedPluginDialog,
+  type ScopedPluginTarget,
+} from "@/components/plugins/ScopedPluginDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -37,6 +41,7 @@ import {
   ChevronRight,
   Pencil,
   Plus,
+  Plug,
   RefreshCw,
   Search,
   Trash2,
@@ -87,6 +92,8 @@ function ConsumersPage() {
   const [consumerDialogOpen, setConsumerDialogOpen] = useState(false);
   const [credentialDialogOpen, setCredentialDialogOpen] = useState(false);
   const [editingConsumer, setEditingConsumer] = useState<Consumer | null>(null);
+  const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
+  const [pluginTarget, setPluginTarget] = useState<ScopedPluginTarget | null>(null);
   const [credentialContext, setCredentialContext] = useState<{
     consumerId: string;
     credential: Credential | null;
@@ -160,6 +167,15 @@ function ConsumersPage() {
     setCredentialContext({ consumerId, credential: null });
     setCredentialFormState(EMPTY_CREDENTIAL_FORM);
     setCredentialDialogOpen(true);
+  }
+
+  function openCreatePluginDialog(consumer: Consumer) {
+    setPluginTarget({
+      id: consumer.id,
+      kind: "consumer",
+      name: consumer.username || consumer.customId || consumer.id,
+    });
+    setPluginDialogOpen(true);
   }
 
   function openEditCredentialDialog(consumerId: string, credential: Credential) {
@@ -447,6 +463,14 @@ function ConsumersPage() {
                     </Button>
                     <Button
                       type="button"
+                      variant="outline"
+                      onClick={() => openCreatePluginDialog(consumer)}
+                    >
+                      <Plug className="h-4 w-4" />
+                      Add Plugin
+                    </Button>
+                    <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => openEditConsumerDialog(consumer)}
@@ -683,6 +707,17 @@ function ConsumersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ScopedPluginDialog
+        open={pluginDialogOpen}
+        onOpenChange={(open) => {
+          setPluginDialogOpen(open);
+          if (!open) {
+            setPluginTarget(null);
+          }
+        }}
+        target={pluginTarget}
+      />
     </div>
   );
 }

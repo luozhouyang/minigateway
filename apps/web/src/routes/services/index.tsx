@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import {
+  ScopedPluginDialog,
+  type ScopedPluginTarget,
+} from "@/components/plugins/ScopedPluginDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -31,7 +35,7 @@ import {
   parseOptionalNumber,
 } from "@/lib/dashboard-utils";
 import { toast } from "sonner";
-import { Pencil, Plus, RefreshCw, Search, Server, Trash2 } from "lucide-react";
+import { Pencil, Plus, Plug, RefreshCw, Search, Server, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/services/")({
   component: ServicesPage,
@@ -76,6 +80,8 @@ function ServicesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [formState, setFormState] = useState<ServiceFormState>(EMPTY_FORM);
+  const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
+  const [pluginTarget, setPluginTarget] = useState<ScopedPluginTarget | null>(null);
 
   useEffect(() => {
     void loadServices();
@@ -122,6 +128,15 @@ function ServicesPage() {
       tags: joinCommaSeparated(service.tags),
     });
     setDialogOpen(true);
+  }
+
+  function openAddPluginDialog(service: Service) {
+    setPluginTarget({
+      id: service.id,
+      kind: "service",
+      name: service.name,
+    });
+    setPluginDialogOpen(true);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -305,7 +320,7 @@ function ServicesPage() {
                   <TableHead>Endpoint</TableHead>
                   <TableHead>Timeouts</TableHead>
                   <TableHead>Updated</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
+                  <TableHead className="w-[220px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -342,7 +357,16 @@ function ServicesPage() {
                       {formatTimestamp(service.updatedAt, settings.showRelativeTimes)}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openAddPluginDialog(service)}
+                        >
+                          <Plug className="h-4 w-4" />
+                          Add Plugin
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
@@ -531,6 +555,17 @@ function ServicesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ScopedPluginDialog
+        open={pluginDialogOpen}
+        onOpenChange={(open) => {
+          setPluginDialogOpen(open);
+          if (!open) {
+            setPluginTarget(null);
+          }
+        }}
+        target={pluginTarget}
+      />
     </div>
   );
 }

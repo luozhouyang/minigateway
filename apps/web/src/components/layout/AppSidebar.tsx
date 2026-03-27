@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import { Route, Server, Settings, Users, Plug, Database, TrendingUp } from "lucide-react";
+import { Route, Server, Settings, Users, Plug, Database, TrendingUp, Bot } from "lucide-react";
 
 const navigationItems = [
   {
@@ -42,6 +42,11 @@ const navigationItems = [
     title: "Plugins",
     url: "/plugins",
     icon: Plug,
+  },
+  {
+    title: "LLM",
+    url: "/llm",
+    icon: Bot,
   },
   {
     title: "Settings",

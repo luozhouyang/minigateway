@@ -47,7 +47,7 @@ export function parseJsonInput<T>(value: string, label: string): T | undefined {
   }
 }
 
-export function stringifyJson(value: Record<string, unknown> | null | undefined): string {
+export function stringifyJson(value: unknown): string {
   return JSON.stringify(value ?? {}, null, 2);
 }
 

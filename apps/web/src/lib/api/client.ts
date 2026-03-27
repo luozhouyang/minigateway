@@ -96,9 +96,92 @@ export interface Plugin {
   updatedAt: string;
 }
 
+export const LLM_CLIENT_PROFILES = [
+  "codex",
+  "claude",
+  "gemini",
+  "openai-compatible",
+  "unknown",
+] as const;
+
+export const LLM_PROVIDER_PROTOCOLS = [
+  "passthrough",
+  "openai-compatible",
+  "openai-responses",
+  "anthropic-messages",
+] as const;
+
+export const LLM_PROVIDER_VENDORS = [
+  "openai",
+  "anthropic",
+  "kimi",
+  "glm",
+  "deepseek",
+  "custom",
+] as const;
+
+export const LLM_PROVIDER_AUTH_TYPES = ["none", "bearer", "api-key"] as const;
+
+export type LlmClientProfile = (typeof LLM_CLIENT_PROFILES)[number];
+export type LlmProviderProtocol = (typeof LLM_PROVIDER_PROTOCOLS)[number];
+export type LlmProviderVendor = (typeof LLM_PROVIDER_VENDORS)[number];
+export type LlmProviderAuthType = (typeof LLM_PROVIDER_AUTH_TYPES)[number];
+
+export interface LlmProviderAuthConfig {
+  type: LlmProviderAuthType;
+  token?: string;
+  tokenEnv?: string;
+  key?: string;
+  keyEnv?: string;
+  headerName?: string;
+}
+
+export interface LlmProvider {
+  id: string;
+  name: string;
+  displayName: string;
+  vendor: LlmProviderVendor;
+  enabled: boolean;
+  protocol: LlmProviderProtocol;
+  baseUrl: string;
+  clients: LlmClientProfile[] | null;
+  headers: Record<string, string>;
+  auth: LlmProviderAuthConfig;
+  adapterConfig: Record<string, unknown>;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LlmModel {
+  id: string;
+  providerId: string;
+  name: string;
+  upstreamModel: string;
+  enabled: boolean;
+  metadata: Record<string, unknown>;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PaginationParams {
   limit?: number;
   offset?: number;
+}
+
+export interface LlmProviderListParams extends PaginationParams {
+  name?: string;
+  vendor?: LlmProviderVendor;
+  protocol?: LlmProviderProtocol;
+  enabled?: boolean;
+}
+
+export interface LlmModelListParams extends PaginationParams {
+  providerId?: string;
+  providerName?: string;
+  name?: string;
+  enabled?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -475,6 +558,117 @@ export const pluginsApi = {
 
   delete: async (id: string): Promise<void> => {
     await fetchApi<ApiResponse<void>>(`/plugins/${id}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+export const llmProvidersApi = {
+  list: async (params?: LlmProviderListParams): Promise<LlmProvider[]> => {
+    if (params && Object.keys(params).length > 0) {
+      const response = await fetchApi<ApiListResponse<LlmProvider>>(
+        `/llm-providers${buildQueryString({
+          limit: params.limit,
+          offset: params.offset,
+          name: params.name,
+          vendor: params.vendor,
+          protocol: params.protocol,
+          enabled: params.enabled,
+        })}`,
+      );
+      return response.data;
+    }
+
+    return fetchAllListItems<LlmProvider>("/llm-providers");
+  },
+
+  get: async (id: string): Promise<LlmProvider> => {
+    const response = await fetchApi<ApiResponse<LlmProvider>>(`/llm-providers/${id}`);
+    return response.data;
+  },
+
+  create: async (data: Partial<LlmProvider>): Promise<LlmProvider> => {
+    const response = await fetchApi<ApiResponse<LlmProvider>>("/llm-providers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response.data;
+  },
+
+  update: async (id: string, data: Partial<LlmProvider>): Promise<LlmProvider> => {
+    const response = await fetchApi<ApiResponse<LlmProvider>>(`/llm-providers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await fetchApi<ApiResponse<void>>(`/llm-providers/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  listModels: async (providerId: string, params?: PaginationParams): Promise<LlmModel[]> => {
+    if (params?.limit !== undefined || params?.offset !== undefined) {
+      const response = await fetchListPage<LlmModel>(`/llm-providers/${providerId}/models`, params);
+      return response.data;
+    }
+
+    return fetchAllListItems<LlmModel>(`/llm-providers/${providerId}/models`);
+  },
+
+  createModel: async (providerId: string, data: Partial<LlmModel>): Promise<LlmModel> => {
+    const response = await fetchApi<ApiResponse<LlmModel>>(`/llm-providers/${providerId}/models`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response.data;
+  },
+};
+
+export const llmModelsApi = {
+  list: async (params?: LlmModelListParams): Promise<LlmModel[]> => {
+    if (params && Object.keys(params).length > 0) {
+      const response = await fetchApi<ApiListResponse<LlmModel>>(
+        `/llm-models${buildQueryString({
+          limit: params.limit,
+          offset: params.offset,
+          providerId: params.providerId,
+          providerName: params.providerName,
+          name: params.name,
+          enabled: params.enabled,
+        })}`,
+      );
+      return response.data;
+    }
+
+    return fetchAllListItems<LlmModel>("/llm-models");
+  },
+
+  get: async (id: string): Promise<LlmModel> => {
+    const response = await fetchApi<ApiResponse<LlmModel>>(`/llm-models/${id}`);
+    return response.data;
+  },
+
+  create: async (data: Partial<LlmModel>): Promise<LlmModel> => {
+    const response = await fetchApi<ApiResponse<LlmModel>>("/llm-models", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response.data;
+  },
+
+  update: async (id: string, data: Partial<LlmModel>): Promise<LlmModel> => {
+    const response = await fetchApi<ApiResponse<LlmModel>>(`/llm-models/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await fetchApi<ApiResponse<void>>(`/llm-models/${id}`, {
       method: "DELETE",
     });
   },

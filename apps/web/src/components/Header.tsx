@@ -1,7 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "./ThemeToggle";
-import { LayoutDashboard, Server, Route, Network, Users, Plug } from "lucide-react";
+import { LayoutDashboard, Server, Route, Network, Users, Plug, Bot } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const navigation = [
   { name: "Upstreams", to: "/upstreams", icon: Network },
   { name: "Consumers", to: "/consumers", icon: Users },
   { name: "Plugins", to: "/plugins", icon: Plug },
+  { name: "LLM", to: "/llm", icon: Bot },
 ];
 
 export default function Header() {
