@@ -1,9 +1,11 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   ScopedPluginDialog,
   type ScopedPluginTarget,
 } from "@/components/plugins/ScopedPluginDialog";
+import { MetricCard } from "@/components/resources/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -15,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -338,30 +341,37 @@ function ConsumersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Consumers</h1>
-          <p className="text-sm text-muted-foreground">
-            Register client identities and attach credentials for authentication plugins.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openCreateConsumerDialog}>
-            <Plus className="h-4 w-4" />
-            Add Consumer
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <PageHeader
+        eyebrow="Identity"
+        title="Consumers"
+        description="Register client identities, attach credentials, and manage consumer-scoped plugins."
+        icon={Users}
+        meta={
+          <>
+            <span>{consumers.length} total consumers</span>
+            <span>{totalCredentials} credentials</span>
+            <span>{credentialTypes} credential types</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openCreateConsumerDialog}>
+              <Plus className="h-4 w-4" />
+              Add Consumer
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -377,16 +387,22 @@ function ConsumersPage() {
           label="Total consumers"
           value={consumers.length}
           description="Registered identities"
+          icon={Users}
+          tone="sky"
         />
         <MetricCard
           label="Credentials"
           value={totalCredentials}
           description="Keys, secrets, and auth material"
+          icon={ChevronDown}
+          tone="lime"
         />
         <MetricCard
           label="Credential types"
           value={credentialTypes}
           description="Distinct auth formats in use"
+          icon={Search}
+          tone="amber"
         />
       </div>
 
@@ -674,7 +690,7 @@ function ConsumersPage() {
 
             <div className="space-y-2">
               <Label htmlFor="credential-json">Credential JSON</Label>
-              <textarea
+              <Textarea
                 id="credential-json"
                 value={credentialFormState.credential}
                 onChange={(event) =>
@@ -683,7 +699,7 @@ function ConsumersPage() {
                     credential: event.target.value,
                   }))
                 }
-                className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-40 font-mono"
                 placeholder='{"key": "abc123"}'
               />
             </div>
@@ -727,22 +743,5 @@ function ConsumersPage() {
         target={pluginTarget}
       />
     </div>
-  );
-}
-
-function MetricCard(props: { label: string; value: number; description: string }) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-sm">{props.label}</CardTitle>
-          <CardDescription>{props.description}</CardDescription>
-        </div>
-        <Users className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-semibold">{props.value}</div>
-      </CardContent>
-    </Card>
   );
 }

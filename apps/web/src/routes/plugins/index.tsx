@@ -1,5 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { MetricCard } from "@/components/resources/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -20,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import {
   consumersApi,
   pluginsApi,
@@ -262,30 +266,37 @@ function PluginsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Plugins</h1>
-          <p className="text-sm text-muted-foreground">
-            Configure policies and middleware for services, routes, consumers, or globally.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" />
-            Add Plugin
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <PageHeader
+        eyebrow="Policies"
+        title="Plugins"
+        description="Configure middleware, traffic policies, and scoped bindings for services, routes, consumers, or global execution."
+        icon={Plug}
+        meta={
+          <>
+            <span>{plugins.length} total plugins</span>
+            <span>{enabledPlugins} enabled</span>
+            <span>{scopedPlugins} scoped</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openCreateDialog}>
+              <Plus className="h-4 w-4" />
+              Add Plugin
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -301,16 +312,22 @@ function PluginsPage() {
           label="Total plugins"
           value={plugins.length}
           description="All installed plugins"
+          icon={Plug}
+          tone="rose"
         />
         <MetricCard
           label="Enabled"
           value={enabledPlugins}
           description="Currently active policies"
+          icon={ToggleRight}
+          tone="lime"
         />
         <MetricCard
           label="Scoped"
           value={scopedPlugins}
           description="Bound to a route, service, or consumer"
+          icon={Search}
+          tone="amber"
         />
       </div>
 
@@ -510,32 +527,30 @@ function PluginsPage() {
               </div>
             </div>
 
-            <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-              <input
-                type="checkbox"
-                checked={formState.enabled}
-                onChange={(event) =>
-                  setFormState((current) => ({ ...current, enabled: event.target.checked }))
-                }
-                className="h-4 w-4 rounded border-input"
-              />
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Plugin enabled</p>
                 <p className="text-xs text-muted-foreground">
                   Disabled plugins remain stored but do not execute.
                 </p>
               </div>
-            </label>
+              <Switch
+                checked={formState.enabled}
+                onCheckedChange={(checked) =>
+                  setFormState((current) => ({ ...current, enabled: checked }))
+                }
+              />
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="plugin-config">Config JSON</Label>
-              <textarea
+              <Textarea
                 id="plugin-config"
                 value={formState.config}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, config: event.target.value }))
                 }
-                className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-40 font-mono"
                 placeholder='{"minute": 100}'
               />
             </div>
@@ -564,22 +579,5 @@ function PluginsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function MetricCard(props: { label: string; value: number; description: string }) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-sm">{props.label}</CardTitle>
-          <CardDescription>{props.description}</CardDescription>
-        </div>
-        <Plug className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-semibold">{props.value}</div>
-      </CardContent>
-    </Card>
   );
 }

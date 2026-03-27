@@ -1,9 +1,11 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   ScopedPluginDialog,
   type ScopedPluginTarget,
 } from "@/components/plugins/ScopedPluginDialog";
+import { MetricCard } from "@/components/resources/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -231,30 +233,37 @@ function ServicesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Services</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage upstream destinations that routes and plugins depend on.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadServices(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" />
-            Add Service
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <PageHeader
+        eyebrow="Upstream Layer"
+        title="Services"
+        description="Manage upstream destinations, transport settings, and service-scoped plugins."
+        icon={Server}
+        meta={
+          <>
+            <span>{services.length} total services</span>
+            <span>{urlBackedServices} URL-backed</span>
+            <span>{taggedServices} tagged</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadServices(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openCreateDialog}>
+              <Plus className="h-4 w-4" />
+              Add Service
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -271,18 +280,21 @@ function ServicesPage() {
           label="Total services"
           value={services.length}
           description="All configured upstream destinations"
+          tone="sky"
         />
         <MetricCard
           icon={Server}
           label="URL based"
           value={urlBackedServices}
           description="Services using a direct URL"
+          tone="lime"
         />
         <MetricCard
           icon={Search}
           label="Tagged"
           value={taggedServices}
           description="Services with management tags"
+          tone="amber"
         />
       </div>
 
@@ -573,28 +585,6 @@ function ServicesPage() {
         target={pluginTarget}
       />
     </div>
-  );
-}
-
-function MetricCard(props: {
-  icon: typeof Server;
-  label: string;
-  value: number;
-  description: string;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-sm">{props.label}</CardTitle>
-          <CardDescription>{props.description}</CardDescription>
-        </div>
-        <props.icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-semibold">{props.value}</div>
-      </CardContent>
-    </Card>
   );
 }
 

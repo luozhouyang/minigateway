@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { PluginBindingsSection } from "@/components/plugins/PluginBindingsSection";
 import { Button } from "@/components/ui/button";
 import { DetailField, DetailSection, TagList } from "@/components/resources/DetailSection";
@@ -33,7 +34,7 @@ import {
 } from "@/lib/dashboard-utils";
 import { formatServiceEndpoint } from "@/lib/resource-display";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, Pencil, RefreshCw, Server } from "lucide-react";
 
 export const Route = createFileRoute("/services/$serviceId")({
   component: ServiceDetailPage,
@@ -176,7 +177,7 @@ function ServiceDetailPage() {
 
   if (!service) {
     return (
-      <div className="space-y-6">
+      <div className="page-enter page-stack">
         <div className="flex flex-col gap-4">
           <Link
             to="/services"
@@ -198,39 +199,44 @@ function ServiceDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <Link
-            to="/services"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to services
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{service.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              Service details, related routes, and scoped plugins.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openEditDialog}>
-            <Pencil className="h-4 w-4" />
-            Edit Service
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <Link
+        to="/services"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to services
+      </Link>
+      <PageHeader
+        eyebrow="Service Detail"
+        title={service.name}
+        description="Service details, related routes, and scoped plugins."
+        icon={Server}
+        meta={
+          <>
+            <span>{formatServiceEndpoint(service)}</span>
+            <span>{relatedRoutes.length} attached routes</span>
+            <span>Updated {formatTimestamp(service.updatedAt, settings.showRelativeTimes)}</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openEditDialog}>
+              <Pencil className="h-4 w-4" />
+              Edit Service
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">

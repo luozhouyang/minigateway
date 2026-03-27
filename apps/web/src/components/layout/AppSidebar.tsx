@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -10,14 +11,25 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import { Route, Server, Settings, Users, Plug, Database, TrendingUp, Bot } from "lucide-react";
+import {
+  Bot,
+  Database,
+  Plug,
+  Route,
+  Server,
+  Settings,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 
-const navigationItems = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: TrendingUp,
-  },
+const dashboardItem = {
+  title: "Dashboard",
+  url: "/dashboard",
+  icon: TrendingUp,
+};
+
+const resourceItems = [
   {
     title: "Routes",
     url: "/routes",
@@ -48,32 +60,64 @@ const navigationItems = [
     url: "/llm",
     icon: Bot,
   },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Database,
-  },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
 
   return (
-    <Sidebar className="border-r">
-      <SidebarHeader className="border-b flex items-center justify-center h-14">
-        <span className="text-sm font-semibold">MiniGateway</span>
+    <Sidebar variant="inset" collapsible="icon" className="border-sidebar-border/70">
+      <SidebarHeader className="gap-3 border-b border-sidebar-border/70 px-3 py-3">
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors hover:bg-sidebar-accent/70"
+        >
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-sidebar-primary/14 text-sidebar-primary shadow-sm ring-1 ring-sidebar-primary/18">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+            <div className="truncate text-sm font-semibold text-sidebar-foreground">
+              MiniGateway
+            </div>
+            <div className="truncate text-xs text-sidebar-foreground/65">
+              API Gateway Control Plane
+            </div>
+          </div>
+        </Link>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+
+      <SidebarContent className="px-2 py-3">
+        <SidebarMenu className="gap-1 px-2">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={location.pathname === dashboardItem.url}
+              tooltip={dashboardItem.title}
+              size="lg"
+              className="rounded-2xl px-3 shadow-none data-[active=true]:bg-sidebar-primary/12 data-[active=true]:text-sidebar-primary"
+            >
+              <Link to={dashboardItem.url}>
+                <dashboardItem.icon className="h-4 w-4" />
+                <span>{dashboardItem.title}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+
+        <SidebarGroup className="px-0 py-0">
+          <SidebarGroupLabel className="px-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-sidebar-foreground/50">
+            Resources
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navigationItems.map((item) => (
+            <SidebarMenu className="gap-1 px-2">
+              {resourceItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
                     tooltip={item.title}
+                    size="lg"
+                    className="rounded-2xl px-3 shadow-none data-[active=true]:bg-sidebar-primary/12 data-[active=true]:text-sidebar-primary"
                   >
                     <Link to={item.url}>
                       <item.icon className="h-4 w-4" />
@@ -86,6 +130,25 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="gap-3 border-t border-sidebar-border/70 px-3 py-3">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              tooltip="Settings"
+              size="lg"
+              className="rounded-2xl px-3"
+              isActive={location.pathname.startsWith("/settings")}
+            >
+              <Link to="/settings">
+                <Database className="h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

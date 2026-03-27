@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { MetricCard } from "@/components/resources/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { type DashboardSettings, useDashboardSettings } from "@/lib/dashboard-settings";
 import { getErrorMessage, parseOptionalNumber } from "@/lib/dashboard-utils";
 import { consumersApi, pluginsApi, routesApi, servicesApi, upstreamsApi } from "@/lib/api/client";
@@ -139,97 +142,63 @@ function Settings() {
       settings.dashboardAutoRefreshSeconds;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Persist local dashboard behavior and validate the current admin API connection.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void runDiagnostics()}
-            disabled={checking}
-          >
-            <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
-            Test Connection
-          </Button>
-          <Button type="button" variant="outline" onClick={handleReset}>
-            <RotateCcw className="h-4 w-4" />
-            Reset
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <PageHeader
+        eyebrow="Preferences"
+        title="Settings"
+        description="Persist dashboard behavior locally, tune destructive-action prompts, and validate admin API connectivity."
+        icon={Settings2}
+        meta={
+          <>
+            <span>{diagnostics.connected ? "Admin API connected" : "Admin API unavailable"}</span>
+            {diagnostics.checkedAt ? <span>Checked {diagnostics.checkedAt}</span> : null}
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void runDiagnostics()}
+              disabled={checking}
+            >
+              <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
+              Test Connection
+            </Button>
+            <Button type="button" variant="outline" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4" />
+              Reset
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-base">Connection</CardTitle>
-              <CardDescription>Current admin API target</CardDescription>
-            </div>
-            <Settings2 className="h-5 w-5 text-blue-600" />
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              Base URL: <span className="font-medium text-foreground">{settings.apiBaseUrl}</span>
-            </p>
-            <p>
-              Status:{" "}
-              <span className={diagnostics.connected ? "text-emerald-600" : "text-destructive"}>
-                {diagnostics.connected ? "Connected" : "Unavailable"}
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-base">Destructive actions</CardTitle>
-              <CardDescription>Deletion and risky change prompts</CardDescription>
-            </div>
-            <ShieldAlert className="h-5 w-5 text-amber-600" />
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              Confirm deletes:{" "}
-              <span className="font-medium text-foreground">
-                {settings.confirmBeforeDelete ? "Enabled" : "Disabled"}
-              </span>
-            </p>
-            <p>
-              Timestamp display:{" "}
-              <span className="font-medium text-foreground">
-                {settings.showRelativeTimes ? "Relative" : "Locale"}
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-base">Auto refresh</CardTitle>
-              <CardDescription>Dashboard landing page sync frequency</CardDescription>
-            </div>
-            <Timer className="h-5 w-5 text-cyan-600" />
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              Interval:{" "}
-              <span className="font-medium text-foreground">
-                {settings.dashboardAutoRefreshSeconds > 0
-                  ? `${settings.dashboardAutoRefreshSeconds}s`
-                  : "Manual refresh only"}
-              </span>
-            </p>
-            <p>Changes are stored locally in your browser.</p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          label="Connection"
+          value={diagnostics.connected ? "Live" : "Offline"}
+          description={settings.apiBaseUrl}
+          icon={Settings2}
+          tone="sky"
+        />
+        <MetricCard
+          label="Destructive actions"
+          value={settings.confirmBeforeDelete ? "Guarded" : "Open"}
+          description={settings.showRelativeTimes ? "Relative timestamps" : "Locale timestamps"}
+          icon={ShieldAlert}
+          tone="amber"
+        />
+        <MetricCard
+          label="Auto refresh"
+          value={
+            settings.dashboardAutoRefreshSeconds > 0
+              ? `${settings.dashboardAutoRefreshSeconds}s`
+              : "Manual"
+          }
+          description="Dashboard landing page sync interval"
+          icon={Timer}
+          tone="lime"
+        />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
@@ -265,35 +234,31 @@ function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={formState.confirmBeforeDelete}
-                  onChange={(event) => handleChange("confirmBeforeDelete", event.target.checked)}
-                  className="h-4 w-4 rounded border-input"
-                />
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">Confirm before delete</p>
                   <p className="text-xs text-muted-foreground">
                     Keep browser confirmation prompts before removing resources.
                   </p>
                 </div>
-              </label>
-
-              <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={formState.showRelativeTimes}
-                  onChange={(event) => handleChange("showRelativeTimes", event.target.checked)}
-                  className="h-4 w-4 rounded border-input"
+                <Switch
+                  checked={formState.confirmBeforeDelete}
+                  onCheckedChange={(checked) => handleChange("confirmBeforeDelete", checked)}
                 />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">Use relative timestamps</p>
                   <p className="text-xs text-muted-foreground">
                     Show times as "5m ago" instead of locale date strings.
                   </p>
                 </div>
-              </label>
+                <Switch
+                  checked={formState.showRelativeTimes}
+                  onCheckedChange={(checked) => handleChange("showRelativeTimes", checked)}
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="dashboardAutoRefreshSeconds">Dashboard auto refresh seconds</Label>

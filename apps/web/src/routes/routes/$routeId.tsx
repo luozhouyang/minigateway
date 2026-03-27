@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { PluginBindingsSection } from "@/components/plugins/PluginBindingsSection";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { routesApi, servicesApi, type Route as RouteConfig, type Service } from "@/lib/api/client";
 import { useDashboardSettings } from "@/lib/dashboard-settings";
 import {
@@ -32,7 +35,7 @@ import {
   stringifyJson,
 } from "@/lib/dashboard-utils";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, Pencil, RefreshCw, Route as RouteIcon } from "lucide-react";
 
 export const Route = createFileRoute("/routes/$routeId")({
   component: RouteDetailPage,
@@ -191,7 +194,7 @@ function RouteDetailPage() {
 
   if (!route) {
     return (
-      <div className="space-y-6">
+      <div className="page-enter page-stack">
         <Link
           to="/routes"
           className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -213,39 +216,46 @@ function RouteDetailPage() {
   const linkedService = services.find((service) => service.id === route.serviceId);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <Link
-            to="/routes"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to routes
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{route.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              Request matching rules, linked service, and scoped plugins.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openEditDialog}>
-            <Pencil className="h-4 w-4" />
-            Edit Route
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <Link
+        to="/routes"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to routes
+      </Link>
+      <PageHeader
+        eyebrow="Route Detail"
+        title={route.name}
+        description="Request matching rules, linked service, and scoped plugins."
+        icon={RouteIcon}
+        meta={
+          <>
+            <span>
+              {route.serviceId ? linkedService?.name || route.serviceId : "Unbound service"}
+            </span>
+            <span>{formatList(route.protocols)}</span>
+            <span>Updated {formatTimestamp(route.updatedAt, settings.showRelativeTimes)}</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openEditDialog}>
+              <Pencil className="h-4 w-4" />
+              Edit Route
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -455,57 +465,53 @@ function RouteDetailPage() {
             <div className="rounded-lg border border-border p-4">
               <p className="text-sm font-medium text-foreground">Booleans</p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={formState.stripPath}
-                    onChange={(event) =>
-                      setFormState((current) => ({
-                        ...current,
-                        stripPath: event.target.checked,
-                      }))
-                    }
-                    className="h-4 w-4 rounded border-input"
-                  />
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3">
                   <div>
                     <p className="text-sm font-medium text-foreground">Strip path</p>
                     <p className="text-xs text-muted-foreground">
                       Remove the matching route prefix before proxying upstream.
                     </p>
                   </div>
-                </label>
-
-                <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={formState.preserveHost}
-                    onChange={(event) =>
+                  <Switch
+                    checked={formState.stripPath}
+                    onCheckedChange={(checked) =>
                       setFormState((current) => ({
                         ...current,
-                        preserveHost: event.target.checked,
+                        stripPath: checked,
                       }))
                     }
-                    className="h-4 w-4 rounded border-input"
                   />
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3">
                   <div>
                     <p className="text-sm font-medium text-foreground">Preserve host</p>
                     <p className="text-xs text-muted-foreground">
                       Forward the original Host header instead of the service host.
                     </p>
                   </div>
-                </label>
+                  <Switch
+                    checked={formState.preserveHost}
+                    onCheckedChange={(checked) =>
+                      setFormState((current) => ({
+                        ...current,
+                        preserveHost: checked,
+                      }))
+                    }
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="route-headers">Headers JSON</Label>
-              <textarea
+              <Textarea
                 id="route-headers"
                 value={formState.headers}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, headers: event.target.value }))
                 }
-                className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-40 font-mono"
                 placeholder='{"x-region": ["cn-sh", "cn-bj"]}'
               />
             </div>

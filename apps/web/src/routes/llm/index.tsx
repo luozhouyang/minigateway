@@ -1,5 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { MetricCard } from "@/components/resources/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -20,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import {
   LLM_CLIENT_PROFILES,
   LLM_PROVIDER_PROTOCOLS,
@@ -384,34 +388,41 @@ function LlmResourcesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">LLM Providers and Models</h1>
-          <p className="text-sm text-muted-foreground">
-            Configure upstream LLM vendors, auth, and model catalogs for router plugins.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" variant="outline" onClick={() => openCreateModelDialog()}>
-            <Plus className="h-4 w-4" />
-            Add Model
-          </Button>
-          <Button type="button" onClick={openCreateProviderDialog}>
-            <Plus className="h-4 w-4" />
-            Add Provider
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <PageHeader
+        eyebrow="AI Routing"
+        title="LLM Providers and Models"
+        description="Configure upstream LLM vendors, transport auth, and the model catalog used by router plugins."
+        icon={Bot}
+        meta={
+          <>
+            <span>{providers.length} providers</span>
+            <span>{models.length} models</span>
+            <span>{enabledModels} enabled models</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" variant="outline" onClick={() => openCreateModelDialog()}>
+              <Plus className="h-4 w-4" />
+              Add Model
+            </Button>
+            <Button type="button" onClick={openCreateProviderDialog}>
+              <Plus className="h-4 w-4" />
+              Add Provider
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -428,24 +439,28 @@ function LlmResourcesPage() {
           label="Providers"
           value={providers.length}
           description="Registered upstream vendors"
+          tone="sky"
         />
         <MetricCard
           icon={Bot}
           label="Enabled providers"
           value={enabledProviders}
           description="Ready for traffic"
+          tone="lime"
         />
         <MetricCard
           icon={Database}
           label="Models"
           value={models.length}
           description="Available routing targets"
+          tone="amber"
         />
         <MetricCard
           icon={Database}
           label="Enabled models"
           value={enabledModels}
           description="Selectable in router plugins"
+          tone="rose"
         />
       </div>
 
@@ -782,22 +797,20 @@ function LlmResourcesPage() {
               />
             </div>
 
-            <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-              <input
-                type="checkbox"
-                checked={providerFormState.enabled}
-                onChange={(event) =>
-                  setProviderFormState((current) => ({ ...current, enabled: event.target.checked }))
-                }
-                className="h-4 w-4 rounded border-input"
-              />
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Provider enabled</p>
                 <p className="text-xs text-muted-foreground">
                   Disabled providers remain stored but cannot be selected for routing.
                 </p>
               </div>
-            </label>
+              <Switch
+                checked={providerFormState.enabled}
+                onCheckedChange={(checked) =>
+                  setProviderFormState((current) => ({ ...current, enabled: checked }))
+                }
+              />
+            </div>
 
             <JsonField
               id="provider-headers"
@@ -907,22 +920,20 @@ function LlmResourcesPage() {
               </div>
             </div>
 
-            <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-              <input
-                type="checkbox"
-                checked={modelFormState.enabled}
-                onChange={(event) =>
-                  setModelFormState((current) => ({ ...current, enabled: event.target.checked }))
-                }
-                className="h-4 w-4 rounded border-input"
-              />
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Model enabled</p>
                 <p className="text-xs text-muted-foreground">
                   Disabled models remain stored but are hidden from routing selection.
                 </p>
               </div>
-            </label>
+              <Switch
+                checked={modelFormState.enabled}
+                onCheckedChange={(checked) =>
+                  setModelFormState((current) => ({ ...current, enabled: checked }))
+                }
+              />
+            </div>
 
             <JsonField
               id="model-metadata"
@@ -961,28 +972,6 @@ function LlmResourcesPage() {
   );
 }
 
-function MetricCard(props: {
-  icon: typeof Bot;
-  label: string;
-  value: number;
-  description: string;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-sm">{props.label}</CardTitle>
-          <CardDescription>{props.description}</CardDescription>
-        </div>
-        <props.icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-semibold">{props.value}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function JsonField(props: {
   id: string;
   label: string;
@@ -993,11 +982,11 @@ function JsonField(props: {
   return (
     <div className="space-y-2">
       <Label htmlFor={props.id}>{props.label}</Label>
-      <textarea
+      <Textarea
         id={props.id}
         value={props.value}
         onChange={(event) => props.onChange(event.target.value)}
-        className="min-h-32 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="min-h-32 font-mono"
         placeholder={props.placeholder}
       />
     </div>

@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { MetricCard } from "@/components/resources/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -309,30 +312,37 @@ function UpstreamsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Upstreams</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage load balancing groups and the targets that receive traffic.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openCreateUpstreamDialog}>
-            <Plus className="h-4 w-4" />
-            Add Upstream
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <PageHeader
+        eyebrow="Network Topology"
+        title="Upstreams"
+        description="Manage balancing groups, target pools, and hashing strategies for traffic distribution."
+        icon={Server}
+        meta={
+          <>
+            <span>{upstreams.length} upstreams</span>
+            <span>{totalTargets} targets</span>
+            <span>{hashUpstreams} hash-based</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openCreateUpstreamDialog}>
+              <Plus className="h-4 w-4" />
+              Add Upstream
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -348,16 +358,22 @@ function UpstreamsPage() {
           label="Total upstreams"
           value={upstreams.length}
           description="All balancing groups"
+          icon={Server}
+          tone="sky"
         />
         <MetricCard
           label="Total targets"
           value={totalTargets}
           description="Backend nodes across every group"
+          icon={Search}
+          tone="lime"
         />
         <MetricCard
           label="Hash algorithm"
           value={hashUpstreams}
           description="Upstreams using deterministic hashing"
+          icon={RefreshCw}
+          tone="amber"
         />
       </div>
 
@@ -612,7 +628,7 @@ function UpstreamsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="healthcheck">Healthcheck JSON</Label>
-              <textarea
+              <Textarea
                 id="healthcheck"
                 value={upstreamFormState.healthcheck}
                 onChange={(event) =>
@@ -621,7 +637,7 @@ function UpstreamsPage() {
                     healthcheck: event.target.value,
                   }))
                 }
-                className="min-h-32 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-32 font-mono"
                 placeholder='{"active": {"healthy": {"interval": 5}}}'
               />
             </div>
@@ -705,22 +721,5 @@ function UpstreamsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function MetricCard(props: { label: string; value: number; description: string }) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-sm">{props.label}</CardTitle>
-          <CardDescription>{props.description}</CardDescription>
-        </div>
-        <Server className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-semibold">{props.value}</div>
-      </CardContent>
-    </Card>
   );
 }

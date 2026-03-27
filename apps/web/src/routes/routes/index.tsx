@@ -1,9 +1,11 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   ScopedPluginDialog,
   type ScopedPluginTarget,
 } from "@/components/plugins/ScopedPluginDialog";
+import { MetricCard } from "@/components/resources/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -16,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -24,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { routesApi, servicesApi, type Route as RouteConfig, type Service } from "@/lib/api/client";
 import { useDashboardSettings } from "@/lib/dashboard-settings";
 import {
@@ -38,7 +42,16 @@ import {
   stringifyJson,
 } from "@/lib/dashboard-utils";
 import { toast } from "sonner";
-import { Pencil, Plus, Plug, RefreshCw, Route as RouteIcon, Search, Trash2 } from "lucide-react";
+import {
+  Pencil,
+  Plus,
+  Plug,
+  RefreshCw,
+  Route as RouteIcon,
+  Search,
+  Server,
+  Trash2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/routes/")({
   component: RoutesPage,
@@ -261,30 +274,37 @@ function RoutesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Routes</h1>
-          <p className="text-sm text-muted-foreground">
-            Define request matching rules and bind them to services.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" />
-            Add Route
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <PageHeader
+        eyebrow="Traffic Control"
+        title="Routes"
+        description="Define request matching rules, service bindings, and route-scoped plugins."
+        icon={RouteIcon}
+        meta={
+          <>
+            <span>{routes.length} total routes</span>
+            <span>{attachedRoutes} attached</span>
+            <span>{pathRoutes} path-driven</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openCreateDialog}>
+              <Plus className="h-4 w-4" />
+              Add Route
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -296,16 +316,26 @@ function RoutesPage() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard label="Total routes" value={routes.length} description="All request rules" />
+        <MetricCard
+          label="Total routes"
+          value={routes.length}
+          description="All request rules"
+          icon={RouteIcon}
+          tone="lime"
+        />
         <MetricCard
           label="Attached services"
           value={attachedRoutes}
           description="Routes already bound to a service"
+          icon={Server}
+          tone="sky"
         />
         <MetricCard
           label="Path matches"
           value={pathRoutes}
           description="Routes matching by path prefixes"
+          icon={Search}
+          tone="amber"
         />
       </div>
 
@@ -572,46 +602,42 @@ function RoutesPage() {
             <div className="rounded-lg border border-border p-4">
               <p className="text-sm font-medium text-foreground">Booleans</p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={formState.stripPath}
-                    onChange={(event) =>
-                      setFormState((current) => ({
-                        ...current,
-                        stripPath: event.target.checked,
-                      }))
-                    }
-                    className="h-4 w-4 rounded border-input"
-                  />
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3">
                   <span className="text-sm text-foreground">Strip path</span>
-                </label>
-                <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={formState.preserveHost}
-                    onChange={(event) =>
+                  <Switch
+                    checked={formState.stripPath}
+                    onCheckedChange={(checked) =>
                       setFormState((current) => ({
                         ...current,
-                        preserveHost: event.target.checked,
+                        stripPath: checked,
                       }))
                     }
-                    className="h-4 w-4 rounded border-input"
                   />
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3">
                   <span className="text-sm text-foreground">Preserve host</span>
-                </label>
+                  <Switch
+                    checked={formState.preserveHost}
+                    onCheckedChange={(checked) =>
+                      setFormState((current) => ({
+                        ...current,
+                        preserveHost: checked,
+                      }))
+                    }
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="headers">Headers JSON</Label>
-              <textarea
+              <Textarea
                 id="headers"
                 value={formState.headers}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, headers: event.target.value }))
                 }
-                className="min-h-32 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-32 font-mono"
                 placeholder='{"x-version": ["v1"]}'
               />
             </div>
@@ -639,23 +665,6 @@ function RoutesPage() {
         target={pluginTarget}
       />
     </div>
-  );
-}
-
-function MetricCard(props: { label: string; value: number; description: string }) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle className="text-sm">{props.label}</CardTitle>
-          <CardDescription>{props.description}</CardDescription>
-        </div>
-        <RouteIcon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-semibold">{props.value}</div>
-      </CardContent>
-    </Card>
   );
 }
 

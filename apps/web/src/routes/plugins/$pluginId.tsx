@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,6 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DetailField,
   DetailSection,
@@ -40,7 +43,7 @@ import {
 } from "@/lib/dashboard-utils";
 import { formatConsumerName } from "@/lib/resource-display";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, Pencil, Plug, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/plugins/$pluginId")({
   component: PluginDetailPage,
@@ -185,7 +188,7 @@ function PluginDetailPage() {
 
   if (!plugin) {
     return (
-      <div className="space-y-6">
+      <div className="page-enter page-stack">
         <Link
           to="/plugins"
           className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -209,39 +212,52 @@ function PluginDetailPage() {
   const linkedConsumer = plugin.consumerId ? consumerById.get(plugin.consumerId) : null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <Link
-            to="/plugins"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to plugins
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{plugin.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              Plugin binding details, scope targets, and configuration.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openEditDialog}>
-            <Pencil className="h-4 w-4" />
-            Edit Plugin
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <Link
+        to="/plugins"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to plugins
+      </Link>
+      <PageHeader
+        eyebrow="Plugin Detail"
+        title={plugin.name}
+        description="Plugin binding details, scope targets, and configuration."
+        icon={Plug}
+        meta={
+          <>
+            <span>{(plugin.enabled ?? true) ? "Enabled" : "Disabled"}</span>
+            <span>
+              {buildScopeLabel([
+                plugin.serviceId ? `service:${linkedService?.name || plugin.serviceId}` : null,
+                plugin.routeId ? `route:${linkedRoute?.name || plugin.routeId}` : null,
+                plugin.consumerId
+                  ? `consumer:${linkedConsumer ? formatConsumerName(linkedConsumer) : plugin.consumerId}`
+                  : null,
+              ])}
+            </span>
+            <span>Updated {formatTimestamp(plugin.updatedAt, settings.showRelativeTimes)}</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openEditDialog}>
+              <Pencil className="h-4 w-4" />
+              Edit Plugin
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -428,32 +444,30 @@ function PluginDetailPage() {
               </div>
             </div>
 
-            <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-              <input
-                type="checkbox"
-                checked={formState.enabled}
-                onChange={(event) =>
-                  setFormState((current) => ({ ...current, enabled: event.target.checked }))
-                }
-                className="h-4 w-4 rounded border-input"
-              />
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Plugin enabled</p>
                 <p className="text-xs text-muted-foreground">
                   Disabled plugins remain stored but do not execute.
                 </p>
               </div>
-            </label>
+              <Switch
+                checked={formState.enabled}
+                onCheckedChange={(checked) =>
+                  setFormState((current) => ({ ...current, enabled: checked }))
+                }
+              />
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="plugin-config">Config JSON</Label>
-              <textarea
+              <Textarea
                 id="plugin-config"
                 value={formState.config}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, config: event.target.value }))
                 }
-                className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-40 font-mono"
                 placeholder='{"minute": 100}'
               />
             </div>

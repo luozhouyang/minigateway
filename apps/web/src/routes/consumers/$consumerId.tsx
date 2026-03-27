@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { PluginBindingsSection } from "@/components/plugins/PluginBindingsSection";
 import { Button } from "@/components/ui/button";
 import { DetailField, DetailSection, TagList } from "@/components/resources/DetailSection";
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -34,7 +36,7 @@ import {
 } from "@/lib/dashboard-utils";
 import { formatConsumerName } from "@/lib/resource-display";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, RefreshCw, Trash2, Users } from "lucide-react";
 
 export const Route = createFileRoute("/consumers/$consumerId")({
   component: ConsumerDetailPage,
@@ -237,7 +239,7 @@ function ConsumerDetailPage() {
 
   if (!consumer) {
     return (
-      <div className="space-y-6">
+      <div className="page-enter page-stack">
         <Link
           to="/consumers"
           className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -259,39 +261,44 @@ function ConsumerDetailPage() {
   const consumerName = formatConsumerName(consumer);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <Link
-            to="/consumers"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to consumers
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{consumerName}</h1>
-            <p className="text-sm text-muted-foreground">
-              Consumer identity, credentials, and scoped plugins.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openEditConsumerDialog}>
-            <Pencil className="h-4 w-4" />
-            Edit Consumer
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <Link
+        to="/consumers"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to consumers
+      </Link>
+      <PageHeader
+        eyebrow="Consumer Detail"
+        title={consumerName}
+        description="Consumer identity, credentials, and scoped plugins."
+        icon={Users}
+        meta={
+          <>
+            <span>{credentials.length} credentials</span>
+            <span>Created {formatTimestamp(consumer.createdAt, settings.showRelativeTimes)}</span>
+            <span>Updated {formatTimestamp(consumer.updatedAt, settings.showRelativeTimes)}</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openEditConsumerDialog}>
+              <Pencil className="h-4 w-4" />
+              Edit Consumer
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -498,7 +505,7 @@ function ConsumerDetailPage() {
 
             <div className="space-y-2">
               <Label htmlFor="credential-json">Credential JSON</Label>
-              <textarea
+              <Textarea
                 id="credential-json"
                 value={credentialFormState.credential}
                 onChange={(event) =>
@@ -507,7 +514,7 @@ function ConsumerDetailPage() {
                     credential: event.target.value,
                   }))
                 }
-                className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-40 font-mono"
                 placeholder='{"key": "secret"}'
               />
             </div>

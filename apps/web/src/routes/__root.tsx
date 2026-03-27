@@ -1,8 +1,10 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
+import { AppTopbar } from "@/components/layout/AppTopbar";
 import { Toaster } from "@/components/ui/sonner";
-import { SidebarProvider, SidebarInset } from "../components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarInset, SidebarProvider } from "../components/ui/sidebar";
 import { AppSidebar } from "../components/layout/AppSidebar";
 
 import appCss from "../styles.css?url";
@@ -41,12 +43,17 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-primary/20 bg-background">
-        <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset className="md:ml-[16rem] transition-[margin-left] duration-200">
-            <main className="p-6">{children}</main>
-          </SidebarInset>
-        </SidebarProvider>
+        <TooltipProvider delayDuration={120}>
+          <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset className="min-h-svh bg-transparent">
+              <AppTopbar />
+              <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
+                {children}
+              </main>
+            </SidebarInset>
+          </SidebarProvider>
+        </TooltipProvider>
         <Toaster />
         <TanStackDevtools
           config={{

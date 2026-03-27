@@ -1,5 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { MetricCard } from "@/components/resources/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -144,7 +146,7 @@ function Dashboard() {
       value: stats.services,
       description: "Configured upstream services",
       icon: Server,
-      accentClass: "bg-blue-500/10 text-blue-600",
+      tone: "sky" as const,
     },
     {
       key: "routes" as const,
@@ -152,7 +154,7 @@ function Dashboard() {
       value: stats.routes,
       description: "Request matching rules",
       icon: RouteIcon,
-      accentClass: "bg-emerald-500/10 text-emerald-600",
+      tone: "lime" as const,
     },
     {
       key: "upstreams" as const,
@@ -160,7 +162,7 @@ function Dashboard() {
       value: stats.upstreams,
       description: "Load balancing groups",
       icon: Settings2,
-      accentClass: "bg-amber-500/10 text-amber-600",
+      tone: "amber" as const,
     },
     {
       key: "consumers" as const,
@@ -168,7 +170,7 @@ function Dashboard() {
       value: stats.consumers,
       description: "Registered API consumers",
       icon: Users,
-      accentClass: "bg-cyan-500/10 text-cyan-600",
+      tone: "slate" as const,
     },
     {
       key: "plugins" as const,
@@ -176,7 +178,7 @@ function Dashboard() {
       value: stats.plugins,
       description: "Installed policy extensions",
       icon: Plug,
-      accentClass: "bg-rose-500/10 text-rose-600",
+      tone: "rose" as const,
     },
   ];
 
@@ -189,38 +191,42 @@ function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Monitor your MiniGateway resources from a single control plane.
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            API base: <span className="font-medium text-foreground">{settings.apiBaseUrl}</span>
-            {lastUpdatedAt
-              ? ` · Last sync ${formatTimestamp(lastUpdatedAt, settings.showRelativeTimes)}`
-              : ""}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadDashboard(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Link
-            to="/services"
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
-          >
-            Open Resources
-          </Link>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <PageHeader
+        eyebrow="Operations"
+        title="Dashboard"
+        description="Monitor gateway health, traffic topology, and the newest resources from a single control plane."
+        icon={Activity}
+        meta={
+          <>
+            <span>
+              API base <span className="font-medium text-foreground">{settings.apiBaseUrl}</span>
+            </span>
+            {lastUpdatedAt ? (
+              <span>Last sync {formatTimestamp(lastUpdatedAt, settings.showRelativeTimes)}</span>
+            ) : null}
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadDashboard(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" asChild>
+              <Link to="/services">
+                Open Resources
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -233,18 +239,14 @@ function Dashboard() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {statCards.map((card) => (
-          <Card key={card.key}>
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-              <div className="space-y-1">
-                <CardTitle className="text-sm">{card.title}</CardTitle>
-                <CardDescription>{card.description}</CardDescription>
-              </div>
-              <div className={`rounded-lg p-2 ${card.accentClass}`}>
-                <card.icon className="h-4 w-4" />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-3xl font-semibold tracking-tight">{card.value}</div>
+          <MetricCard
+            key={card.key}
+            label={card.title}
+            value={card.value}
+            description={card.description}
+            icon={card.icon}
+            tone={card.tone}
+            footer={
               <Link
                 to={resourceLinks[card.key]}
                 className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
@@ -252,8 +254,8 @@ function Dashboard() {
                 View {card.title.toLowerCase()}
                 <ArrowRight className="h-4 w-4" />
               </Link>
-            </CardContent>
-          </Card>
+            }
+          />
         ))}
       </div>
 

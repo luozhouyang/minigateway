@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { pluginsApi, type Plugin } from "@/lib/api/client";
 import {
   getErrorMessage,
@@ -143,32 +145,30 @@ export function PluginBindingDialog(props: PluginBindingDialogProps) {
             />
           </div>
 
-          <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-            <input
-              type="checkbox"
-              checked={formState.enabled}
-              onChange={(event) =>
-                setFormState((current) => ({ ...current, enabled: event.target.checked }))
-              }
-              className="h-4 w-4 rounded border-input"
-            />
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
             <div>
               <p className="text-sm font-medium text-foreground">Plugin enabled</p>
               <p className="text-xs text-muted-foreground">
                 Disable the binding without removing it from this scope.
               </p>
             </div>
-          </label>
+            <Switch
+              checked={formState.enabled}
+              onCheckedChange={(checked) =>
+                setFormState((current) => ({ ...current, enabled: checked }))
+              }
+            />
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="plugin-config">Config JSON</Label>
-            <textarea
+            <Textarea
               id="plugin-config"
               value={formState.config}
               onChange={(event) =>
                 setFormState((current) => ({ ...current, config: event.target.value }))
               }
-              className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="min-h-40 font-mono"
               placeholder={stringifyJson({})}
             />
           </div>

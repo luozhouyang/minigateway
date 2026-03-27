@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
   DetailField,
@@ -18,6 +19,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { llmModelsApi, llmProvidersApi, type LlmModel, type LlmProvider } from "@/lib/api/client";
 import { useDashboardSettings } from "@/lib/dashboard-settings";
 import {
@@ -29,7 +32,7 @@ import {
   stringifyJson,
 } from "@/lib/dashboard-utils";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bot, Pencil, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/llm/models/$modelId")({
   component: LlmModelDetailPage,
@@ -152,7 +155,7 @@ function LlmModelDetailPage() {
 
   if (!model) {
     return (
-      <div className="space-y-6">
+      <div className="page-enter page-stack">
         <Link
           to="/llm"
           className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -174,39 +177,44 @@ function LlmModelDetailPage() {
   const provider = providers.find((item) => item.id === model.providerId);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <Link
-            to="/llm"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to LLM resources
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{model.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              Model mapping, provider association, and routing metadata.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button type="button" onClick={openEditDialog}>
-            <Pencil className="h-4 w-4" />
-            Edit Model
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter page-stack">
+      <Link
+        to="/llm"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to LLM resources
+      </Link>
+      <PageHeader
+        eyebrow="Model Detail"
+        title={model.name}
+        description="Model mapping, provider association, and routing metadata."
+        icon={Bot}
+        meta={
+          <>
+            <span>{provider ? provider.displayName || provider.name : model.providerId}</span>
+            <span>{model.enabled ? "Enabled" : "Disabled"}</span>
+            <span>Updated {formatTimestamp(model.updatedAt, settings.showRelativeTimes)}</span>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadData(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button type="button" onClick={openEditDialog}>
+              <Pencil className="h-4 w-4" />
+              Edit Model
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <Card className="border-destructive/40">
@@ -318,32 +326,30 @@ function LlmModelDetailPage() {
               </div>
             </div>
 
-            <label className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-              <input
-                type="checkbox"
-                checked={formState.enabled}
-                onChange={(event) =>
-                  setFormState((current) => ({ ...current, enabled: event.target.checked }))
-                }
-                className="h-4 w-4 rounded border-input"
-              />
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Model enabled</p>
                 <p className="text-xs text-muted-foreground">
                   Disabled models remain stored but are hidden from routing selection.
                 </p>
               </div>
-            </label>
+              <Switch
+                checked={formState.enabled}
+                onCheckedChange={(checked) =>
+                  setFormState((current) => ({ ...current, enabled: checked }))
+                }
+              />
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="model-metadata">Metadata JSON</Label>
-              <textarea
+              <Textarea
                 id="model-metadata"
                 value={formState.metadata}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, metadata: event.target.value }))
                 }
-                className="min-h-32 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-32 font-mono"
                 placeholder='{"contextWindow": 128000}'
               />
             </div>
