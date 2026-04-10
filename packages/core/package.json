@@ -50,7 +50,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260316.1",
     "drizzle-kit": "^0.31.9",
     "typescript": "^5.9.3",
-    "vite-plus": "0.1.14"
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": "24.14.0"
