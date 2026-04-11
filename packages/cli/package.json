@@ -22,7 +22,8 @@
   ],
   "type": "module",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "build": "vp pack src/cli/index.ts",

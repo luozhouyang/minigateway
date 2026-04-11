@@ -145,7 +145,7 @@ Full documentation is available at [minigateway.luozhouyang.com](https://minigat
 
 ## License
 
-[MIT](./LICENSE) - Luo Zhou Yang
+[MIT](./LICENSE)
 
 ## Contributing
 
