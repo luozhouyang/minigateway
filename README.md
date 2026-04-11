@@ -1,6 +1,8 @@
 # MiniGateway
 
-A lightweight, high-performance LLM API proxy gateway with built-in web dashboard.
+A mini API Gateway for LLMs, inspired by Kong.
+
+![minigateway](./assets/minigateway.png)
 
 ## Features
 
