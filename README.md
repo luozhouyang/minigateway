@@ -23,7 +23,7 @@ A lightweight, high-performance LLM API proxy gateway with built-in web dashboar
 ### Prerequisites
 
 - Node.js 24.x or later
-- pnpm 10.x or later
+- pnpm 10.x or later (for development)
 
 ### From Source
 
@@ -34,7 +34,7 @@ pnpm install
 pnpm build
 ```
 
-### NPM (Coming Soon)
+### NPM
 
 ```bash
 npm install -g @minigateway/cli
@@ -45,11 +45,14 @@ npm install -g @minigateway/cli
 Start the gateway server:
 
 ```bash
+# Using npm
+minigateway start
+
 # From source
 pnpm exec minigateway start
 
 # Or with options
-pnpm exec minigateway start --port 8080 --log-level debug
+minigateway start --port 8080 --log-level debug
 ```
 
 ### CLI Options
