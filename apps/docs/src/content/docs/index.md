@@ -4,8 +4,6 @@ description: A lightweight, high-performance LLM API proxy gateway with built-in
 template: splash
 hero:
   tagline: LLM API Proxy Gateway
-  image:
-    file: ../../assets/logo.svg
   actions:
     - text: Get Started
       link: /getting-started/installation/

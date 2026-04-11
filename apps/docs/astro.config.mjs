@@ -85,10 +85,6 @@ export default defineConfig({
           href: "https://github.com/luozhouyang/minigateway",
         },
       ],
-      logo: {
-        src: "./src/assets/logo.svg",
-        replacesTitle: true,
-      },
       tableOfContents: {
         minHeadingLevel: 2,
         maxHeadingLevel: 4,
