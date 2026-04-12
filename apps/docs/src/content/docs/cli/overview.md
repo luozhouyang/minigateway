@@ -8,21 +8,23 @@ MiniGateway provides a command-line interface for server management and administ
 ## Installation
 
 ```bash
-# From source
-node packages/cli/dist/index.mjs [command]
+# From npm
+npm install -g @minigateway/cli
+minigateway [command]
 
-# From npm (when published)
-npx minigateway [command]
+# Or use npx
+npx @minigateway/cli [command]
 ```
 
 ## Available Commands
 
-| Command      | Description                |
-| ------------ | -------------------------- |
-| `start`      | Start the unified server   |
-| `status`     | Check server status        |
-| `admin`      | Entity management commands |
-| `llm-router` | LLM-specific commands      |
+| Command      | Description                   |
+| ------------ | ----------------------------- |
+| `start`      | Start the unified server      |
+| `init`       | Initialize configuration file |
+| `status`     | Check server status           |
+| `admin`      | Entity management commands    |
+| `llm-router` | LLM-specific commands         |
 
 ## Global Options
 
@@ -30,6 +32,39 @@ npx minigateway [command]
 | --------------- | ------------ |
 | `-h, --help`    | Show help    |
 | `-V, --version` | Show version |
+
+## init Command
+
+Initialize a new configuration file:
+
+```bash
+minigateway init [path] [options]
+```
+
+### Arguments
+
+| Argument | Default                            | Description      |
+| -------- | ---------------------------------- | ---------------- |
+| `[path]` | Platform-specific config directory | Config file path |
+
+### Options
+
+| Option        | Description                    |
+| ------------- | ------------------------------ |
+| `-f, --force` | Overwrite existing config file |
+
+### Examples
+
+```bash
+# Create default config
+minigateway init
+
+# Create config in current directory
+minigateway init ./minigateway.yaml
+
+# Force overwrite
+minigateway init --force
+```
 
 ## start Command
 
@@ -41,15 +76,29 @@ minigateway start [options]
 
 ### Options
 
-| Option                | Default                         | Description           |
-| --------------------- | ------------------------------- | --------------------- |
-| `-p, --port <port>`   | 8080                            | Server port           |
-| `--db <path>`         | `~/.minigateway/minigateway.db` | Database path         |
-| `--ui-dist <path>`    | auto                            | Web UI dist directory |
-| `--log-level <level>` | info                            | Log verbosity         |
-| `--no-ui`             | false                           | Disable Web UI        |
+| Option                | Default                                                                  | Description           |
+| --------------------- | ------------------------------------------------------------------------ | --------------------- |
+| `-p, --port <port>`   | 8080                                                                     | Server port           |
+| `--db <path>`         | Platform-specific (see [Configuration](/getting-started/configuration/)) | Database path         |
+| `--ui-dist <path>`    | auto                                                                     | Web UI dist directory |
+| `--log-level <level>` | info                                                                     | Log verbosity         |
+| `--no-ui`             | false                                                                    | Disable Web UI        |
 
 ### Examples
+
+```bash
+# Start with default settings
+minigateway start
+
+# Start on custom port
+minigateway start --port 3000
+
+# Start without Web UI
+minigateway start --no-ui
+
+# Start with custom database
+minigateway start --db /data/minigateway.db
+```
 
 ## admin Command
 

@@ -3,20 +3,52 @@ title: Configuration
 description: Configure MiniGateway for your environment
 ---
 
-MiniGateway uses a SQLite database for configuration storage. You can manage settings through:
+MiniGateway stores configuration in a SQLite database. You can manage settings through:
 
-- **Admin API** - RESTful endpoints for all operations
+- **Admin API** - RESTful endpoints at `/admin/`
 - **Web Dashboard** - Visual interface at `/ui/`
-- **CLI Commands** - Command-line administration
+- **CLI Commands** - `minigateway admin` command-line administration
+
+## Configuration Paths
+
+MiniGateway uses platform-specific directories for storing configuration and data files:
+
+| Platform | Config Directory                                                             |
+| -------- | ---------------------------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/minigateway/`                                 |
+| Linux    | `~/.config/minigateway/`                                                     |
+| Windows  | `%APPDATA%/minigateway/` (e.g., `C:\Users\...\AppData\Roaming\minigateway\`) |
+
+### Key Files
+
+| File              | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `minigateway.db`  | SQLite database (services, routes, plugins, etc.) |
+| `cli-config.json` | CLI configuration (API URL, auth token)           |
+
+### Initialize Configuration
+
+Create a YAML configuration template:
+
+```bash
+# Default path (platform-specific config directory)
+minigateway init
+
+# Custom path
+minigateway init ./my-config.yaml
+
+# Force overwrite existing file
+minigateway init --force
+```
 
 ## Database Configuration
 
-By default, MiniGateway stores its database at:
+By default, MiniGateway stores its database in the platform-specific config directory.
 
-You can customize the database location:
+Customize the database location:
 
 ```bash
-node packages/cli/dist/index.mjs start --db /custom/path/database.db
+minigateway start --db /custom/path/database.db
 ```
 
 ## Configuration Entities
@@ -55,11 +87,11 @@ Service
 ### Port Configuration
 
 ```bash
-# Default port
-node packages/cli/dist/index.mjs start --port 8080
+# Default port (8080)
+minigateway start
 
 # Custom port
-node packages/cli/dist/index.mjs start --port 3000
+minigateway start --port 3000
 ```
 
 ### Logging Levels
@@ -74,16 +106,16 @@ MiniGateway enables CORS by default for development. Configure in production:
 
 ```bash
 # With UI (default)
-node packages/cli/dist/index.mjs start
+minigateway start
 
 # Without UI (Admin API only)
-node packages/cli/dist/index.mjs start --no-ui
+minigateway start --no-ui
 ```
 
 ### Custom UI Path
 
 ```bash
-node packages/cli/dist/index.mjs start --ui-dist /path/to/custom/ui
+minigateway start --ui-dist /path/to/custom/ui
 ```
 
 ## Next Steps

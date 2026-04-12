@@ -8,13 +8,41 @@ description: Install and set up MiniGateway in your environment
 Before installing MiniGateway, ensure you have the following:
 
 - **Node.js** 24.x or later
-- **pnpm** 10.x or later (recommended package manager)
 
-## Installation Options
+## Installation
+
+### From npm
+
+```bash
+# Install globally
+npm install -g @minigateway/cli
+
+# Or use npx without installing
+npx @minigateway/cli start
+```
+
+After installation, verify:
+
+```bash
+minigateway --version
+minigateway --help
+```
+
+### From Source
+
+```bash
+git clone https://github.com/luozhouyang/minigateway.git
+cd minigateway
+pnpm install
+pnpm build
+
+# Run locally
+node packages/cli/dist/index.mjs start
+```
 
 ## Directory Structure
 
-After cloning, you'll see the following structure:
+When building from source:
 
 ```
 minigateway/
@@ -24,8 +52,7 @@ minigateway/
 │   └── website/      # Landing page
 ├── packages/
 │   ├── core/         # Core gateway engine
-│   ├── cli/          # CLI tools
-│   └── utils/        # Shared utilities
+│   └── cli/          # CLI tools
 ├── tools/            # Development tools
 ├── pnpm-workspace.yaml
 └── package.json
@@ -33,14 +60,13 @@ minigateway/
 
 ## Verify Installation
 
-Run the following command to verify everything is working:
-
 ```bash
-vp check
-vp test run
-```
+# Verify CLI works
+minigateway --help
 
-All checks and tests should pass.
+# Start server
+minigateway start --port 8080
+```
 
 ## Next Steps
 
